@@ -10,7 +10,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { userApi } from "@/lib/api";
 import { useMutation } from "@tanstack/react-query";
-import { Mail, Lock, Trash2, Loader2, AlertCircle } from "lucide-react";
+import { Mail, Lock, Trash2, Loader2, AlertCircle, User as UserIcon } from "lucide-react";
+import { ImageUpload } from "@/components/ui/image-upload";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -79,6 +80,44 @@ export default function ContaEmpresa() {
       toast({
         title: "Erro",
         description: error.response?.data?.message || "Falha ao alterar password",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mutation para upload de avatar
+  const uploadAvatarMutation = useMutation({
+    mutationFn: (file: File) => userApi.uploadAvatar(file),
+    onSuccess: () => {
+      toast({
+        title: "Sucesso",
+        description: "Avatar atualizado com sucesso!",
+      });
+      refreshUserProfile();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: error.response?.data?.message || "Falha ao fazer upload do avatar",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mutation para remover avatar
+  const deleteAvatarMutation = useMutation({
+    mutationFn: () => userApi.deleteAvatar(),
+    onSuccess: () => {
+      toast({
+        title: "Sucesso",
+        description: "Avatar removido com sucesso!",
+      });
+      refreshUserProfile();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: error.response?.data?.message || "Falha ao remover avatar",
         variant: "destructive",
       });
     },
@@ -179,6 +218,38 @@ export default function ContaEmpresa() {
           </div>
 
           <div className="max-w-2xl mx-auto space-y-6">
+            {/* Avatar do Utilizador */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <UserIcon className="h-5 w-5" />
+                  Foto de Perfil
+                </CardTitle>
+                <CardDescription>
+                  Esta foto aparece no cabeçalho quando está autenticado
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ImageUpload
+                  currentImage={user?.avatar}
+                  fallback={
+                    <UserIcon className="h-12 w-12 text-muted-foreground" />
+                  }
+                  onUpload={async (file) => {
+                    await uploadAvatarMutation.mutateAsync(file);
+                  }}
+                  onDelete={async () => {
+                    await deleteAvatarMutation.mutateAsync();
+                  }}
+                  isUploading={uploadAvatarMutation.isPending}
+                  isDeleting={deleteAvatarMutation.isPending}
+                  size="xl"
+                  shape="circle"
+                  label="Foto do Utilizador"
+                />
+              </CardContent>
+            </Card>
+
             {/* Alterar Email */}
             <Card>
               <CardHeader>
