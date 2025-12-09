@@ -41,9 +41,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
-import { jobApi, JobSearchFilters } from "@/lib/api";
+import { jobApi, JobSearchFilters, savedJobsApi } from "@/lib/api";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 // Mapear tipos do frontend para tipos da API
 const contractTypeMap: Record<string, string> = {
@@ -315,7 +317,6 @@ export default function VagasPage() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [sortBy, setSortBy] = useState("recent");
   const [currentPage, setCurrentPage] = useState(1);
-  const [savedJobs, setSavedJobs] = useState<string[]>([]);
   const [showOnlyGoodMatches, setShowOnlyGoodMatches] = useState(
     searchParams.get("goodMatches") === "true"
   );
@@ -325,6 +326,17 @@ export default function VagasPage() {
 
   const isAuthenticated = !!user;
   const userType = user?.type === "CANDIDATO" ? "candidato" : user?.type === "EMPRESA" ? "empresa" : null;
+  const queryClient = useQueryClient();
+
+  // Buscar IDs das vagas guardadas (apenas para candidatos autenticados)
+  const { data: savedJobsData } = useQuery({
+    queryKey: ["savedJobIds"],
+    queryFn: () => savedJobsApi.getSavedJobIds(),
+    enabled: isAuthenticated && userType === "candidato",
+    retry: false,
+  });
+
+  const savedJobs = savedJobsData?.savedJobIds || [];
 
   const jobsPerPage = 20;
 
@@ -381,12 +393,57 @@ export default function VagasPage() {
     setCurrentPage(1);
   };
 
+  // Mutation para guardar vaga
+  const saveJobMutation = useMutation({
+    mutationFn: (jobId: string) => savedJobsApi.saveJob(jobId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["savedJobIds"] });
+      toast.success("Vaga guardada com sucesso!");
+    },
+    onError: (error: any) => {
+      if (error.response?.status === 401) {
+        toast.error("Por favor, faça login para guardar vagas.");
+      } else if (error.response?.data?.error === "JOB_ALREADY_SAVED") {
+        toast.info("Esta vaga já está guardada.");
+      } else {
+        toast.error("Erro ao guardar vaga. Tente novamente.");
+      }
+    },
+  });
+
+  // Mutation para remover vaga guardada
+  const unsaveJobMutation = useMutation({
+    mutationFn: (jobId: string) => savedJobsApi.unsaveJob(jobId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["savedJobIds"] });
+      toast.success("Vaga removida dos guardados.");
+    },
+    onError: () => {
+      toast.error("Erro ao remover vaga. Tente novamente.");
+    },
+  });
+
   const toggleSaveJob = (id: string) => {
-    setSavedJobs(
-      savedJobs.includes(id)
-        ? savedJobs.filter((j) => j !== id)
-        : [...savedJobs, id]
-    );
+    if (!isAuthenticated) {
+      toast.error("Por favor, faça login para guardar vagas.", {
+        action: {
+          label: "Login",
+          onClick: () => (window.location.href = "/auth/login"),
+        },
+      });
+      return;
+    }
+
+    if (userType !== "candidato") {
+      toast.error("Apenas candidatos podem guardar vagas.");
+      return;
+    }
+
+    if (savedJobs.includes(id)) {
+      unsaveJobMutation.mutate(id);
+    } else {
+      saveJobMutation.mutate(id);
+    }
   };
 
   const totalPages = jobsData?.pagination.totalPages || 0;

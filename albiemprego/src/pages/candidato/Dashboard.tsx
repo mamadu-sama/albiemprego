@@ -212,6 +212,13 @@ export default function CandidatoDashboard() {
               <span className="text-sm font-medium">Candidaturas</span>
             </Link>
             <Link
+              to="/candidato/vagas-guardadas"
+              className="flex flex-col items-center justify-center gap-2 h-auto py-4 px-4 border rounded-lg hover:bg-muted transition-colors"
+            >
+              <Bookmark className="h-5 w-5" />
+              <span className="text-sm font-medium">Vagas Guardadas</span>
+            </Link>
+            <Link
               to="/candidato/perfil"
               className="flex flex-col items-center justify-center gap-2 h-auto py-4 px-4 border rounded-lg hover:bg-muted transition-colors"
             >

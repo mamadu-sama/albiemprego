@@ -20,6 +20,7 @@ import NotFound from "./pages/NotFound";
 import Manutencao from "./pages/Manutencao";
 import CandidatoDashboard from "./pages/candidato/Dashboard";
 import CandidatoCandidaturas from "./pages/candidato/Candidaturas";
+import CandidatoVagasGuardadas from "./pages/candidato/CandidatoVagasGuardadas";
 import CandidatoPerfil from "./pages/candidato/Perfil";
 import EditarPerfil from "./pages/candidato/EditarPerfil";
 import Alertas from "./pages/candidato/Alertas";
@@ -126,7 +127,15 @@ function AppContent() {
             <ProtectedRoute requiredType="CANDIDATO">
               <CandidatoCandidaturas />
             </ProtectedRoute>
-          } 
+          }
+        />
+        <Route 
+          path="/candidato/vagas-guardadas" 
+          element={
+            <ProtectedRoute requiredType="CANDIDATO">
+              <CandidatoVagasGuardadas />
+            </ProtectedRoute>
+          }
         />
         <Route 
           path="/candidato/perfil" 

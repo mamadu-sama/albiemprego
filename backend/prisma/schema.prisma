@@ -135,6 +135,7 @@ model Candidate {
   educations   Education[]
   languages    Language[]
   applications Application[]
+  savedJobs    SavedJob[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -270,6 +271,7 @@ model Job {
 
   // Relações
   applications Application[]
+  savedBy      SavedJob[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -305,6 +307,21 @@ model Application {
   @@index([candidateId, status])
   @@index([jobId, status])
   @@map("applications")
+}
+
+model SavedJob {
+  id          String    @id @default(uuid())
+  candidateId String
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  jobId       String
+  job         Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  savedAt DateTime @default(now())
+
+  @@unique([candidateId, jobId])
+  @@index([candidateId])
+  @@index([jobId])
+  @@map("saved_jobs")
 }
 
 model Notification {

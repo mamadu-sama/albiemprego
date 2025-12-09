@@ -659,6 +659,58 @@ export const jobApi = {
   },
 };
 
+// ============================================
+// SAVED JOBS API
+// ============================================
+
+export interface SavedJob {
+  id: string;
+  savedAt: string;
+  job: Job;
+}
+
+export const savedJobsApi = {
+  /**
+   * Guardar uma vaga
+   */
+  async saveJob(jobId: string): Promise<{ message: string; savedJob: SavedJob }> {
+    const response = await api.post(`/saved-jobs/${jobId}`);
+    return response.data;
+  },
+
+  /**
+   * Remover vaga guardada
+   */
+  async unsaveJob(jobId: string): Promise<{ message: string }> {
+    const response = await api.delete(`/saved-jobs/${jobId}`);
+    return response.data;
+  },
+
+  /**
+   * Obter todas as vagas guardadas
+   */
+  async getSavedJobs(): Promise<{ savedJobs: SavedJob[]; total: number }> {
+    const response = await api.get("/saved-jobs");
+    return response.data;
+  },
+
+  /**
+   * Obter IDs das vagas guardadas (para marcar na listagem)
+   */
+  async getSavedJobIds(): Promise<{ savedJobIds: string[] }> {
+    const response = await api.get("/saved-jobs/ids");
+    return response.data;
+  },
+
+  /**
+   * Verificar se uma vaga está guardada
+   */
+  async checkIfSaved(jobId: string): Promise<{ isSaved: boolean }> {
+    const response = await api.get(`/saved-jobs/${jobId}/check`);
+    return response.data;
+  },
+};
+
 // Health check
 export const healthCheck = async (): Promise<{
   status: string;

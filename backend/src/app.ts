@@ -23,6 +23,7 @@ import userRoutes from "./routes/user.routes";
 import candidateRoutes from "./routes/candidate.routes";
 import companyRoutes from "./routes/company.routes";
 import jobRoutes from "./routes/job.routes";
+import savedJobRoutes from "./routes/saved-job.routes";
 
 // Criar aplicação Express
 const app: Application = express();
@@ -97,6 +98,7 @@ app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/candidates", candidateRoutes);
 app.use("/api/v1/companies", companyRoutes);
 app.use("/api/v1/jobs", jobRoutes);
+app.use("/api/v1/saved-jobs", savedJobRoutes);
 
 // ============================================
 // ERROR HANDLING

@@ -77,6 +77,13 @@ export class CandidateService {
   }
 
   /**
+   * Obter candidato por userId (método público)
+   */
+  static async getCandidateByUserId(userId: string) {
+    return await this.verifyCandidate(userId);
+  }
+
+  /**
    * Obter perfil completo do candidato
    */
   static async getProfile(userId: string) {
