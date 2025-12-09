@@ -107,7 +107,7 @@ export class AuthController {
   static async logout(req: Request, res: Response, next: NextFunction) {
     try {
       // req.userId é injetado pelo middleware authenticateToken
-      const userId = req.userId;
+      const userId = req.user?.userId;
 
       if (!userId) {
         throw new ValidationError("Utilizador não autenticado");

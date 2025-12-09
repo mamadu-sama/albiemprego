@@ -411,7 +411,7 @@ Eliminar conta.
 
 ### GET `/jobs`
 
-Listar vagas com filtros.
+Listar vagas com filtros (endpoint legado - usar `/jobs/search` para busca avançada).
 
 **Query Parameters:**
 
@@ -484,6 +484,238 @@ interface Job {
   viewsCount?: number;
 }
 ```
+
+---
+
+### GET `/jobs/search` 🆕
+
+**Busca pública avançada de vagas com filtros e Match Score.**
+
+Este é o endpoint principal para busca de vagas na plataforma. Suporta filtros avançados, ordenação por relevância e cálculo de Match Score para candidatos autenticados.
+
+**Autenticação:** Opcional (se autenticado como candidato, retorna match scores)
+
+**Rate Limit:** 30 requisições por minuto
+
+**Query Parameters:**
+
+```typescript
+interface JobSearchQuery {
+  // Busca por texto (título, skills, requirements, description)
+  search?: string; // max 100 caracteres
+
+  // Filtros de localização
+  location?: string; // Concelho (ex: "Castelo Branco", "Covilhã")
+
+  // Filtros de tipo de contrato (múltiplos)
+  type?: string | string[]; // "FULL_TIME", "PART_TIME", "TEMPORARY", "INTERNSHIP", "FREELANCE"
+
+  // Filtros de modo de trabalho (múltiplos)
+  workMode?: string | string[]; // "PRESENCIAL", "REMOTO", "HIBRIDO"
+
+  // Filtros de salário
+  salaryMin?: number; // min: 0, max: 10000
+  salaryMax?: number; // min: 0, max: 10000
+  showSalaryOnly?: boolean; // Apenas vagas com salário visível
+
+  // Filtros de setor e experiência
+  sector?: string; // max 50 caracteres
+  experienceLevel?: string; // ex: "junior", "mid", "senior"
+
+  // Filtro de Match Score (requer autenticação como candidato)
+  goodMatchesOnly?: boolean; // Apenas vagas com match >= 70%
+
+  // Ordenação
+  sortBy?: "recent" | "salary-high" | "salary-low" | "relevance";
+  // - recent: mais recentes primeiro (default)
+  // - salary-high: salário mais alto primeiro
+  // - salary-low: salário mais baixo primeiro
+  // - relevance: combinação de match score + views + recência
+
+  // Paginação
+  page?: number; // min: 1, default: 1
+  limit?: number; // min: 1, max: 50, default: 20
+}
+```
+
+**Exemplos de Requisição:**
+
+```bash
+# Busca simples
+GET /jobs/search?search=React&location=Castelo Branco
+
+# Busca com múltiplos tipos de contrato
+GET /jobs/search?type=FULL_TIME&type=PART_TIME
+
+# Busca com filtro de salário
+GET /jobs/search?salaryMin=1500&salaryMax=3000&showSalaryOnly=true
+
+# Busca com Match Score (autenticado)
+GET /jobs/search?goodMatchesOnly=true&sortBy=relevance
+Authorization: Bearer <token>
+
+# Busca combinada
+GET /jobs/search?search=Node.js&location=Castelo Branco&type=FULL_TIME&workMode=REMOTO&sortBy=salary-high
+```
+
+**Response 200:**
+
+```typescript
+interface JobSearchResponse {
+  jobs: JobSearchResult[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+  matchScores?: Record<string, number>; // jobId -> score (apenas para candidatos autenticados)
+}
+
+interface JobSearchResult {
+  id: string;
+  title: string;
+  description: string;
+  location: string;
+  type: "FULL_TIME" | "PART_TIME" | "TEMPORARY" | "INTERNSHIP" | "FREELANCE";
+  workMode: "PRESENCIAL" | "REMOTO" | "HIBRIDO";
+
+  // Salário
+  salaryMin: number | null;
+  salaryMax: number | null;
+  showSalary: boolean;
+  salaryCurrency: string; // "EUR"
+  salaryPeriod: string; // "month", "year", "hour"
+
+  // Detalhes da vaga
+  sector: string;
+  experienceLevel: string | null;
+  skills: string[];
+  requirements: string[];
+  responsibilities: string[];
+  benefits: string[];
+
+  // Campos de destaque
+  isFeatured: boolean; // Vaga em destaque (paga)
+  isUrgent: boolean; // Vaga urgente
+  quickApply: boolean; // Candidatura rápida sem CV
+
+  // Métricas
+  publishedAt: string | null;
+  viewsCount: number;
+
+  // Empresa
+  company: {
+    id: string;
+    name: string;
+    logo: string | null;
+  };
+
+  // Estatísticas
+  _count: {
+    applications: number;
+  };
+
+  // Match Score (apenas para candidatos autenticados)
+  matchScore?: number; // 0-100
+}
+```
+
+**Exemplo de Resposta (sem autenticação):**
+
+```json
+{
+  "jobs": [
+    {
+      "id": "uuid-123",
+      "title": "Desenvolvedor React Senior",
+      "description": "Procuramos desenvolvedor React experiente...",
+      "location": "Castelo Branco",
+      "type": "FULL_TIME",
+      "workMode": "HIBRIDO",
+      "salaryMin": 2000,
+      "salaryMax": 3000,
+      "showSalary": true,
+      "salaryCurrency": "EUR",
+      "salaryPeriod": "month",
+      "sector": "Tecnologia",
+      "experienceLevel": "senior",
+      "skills": ["React", "TypeScript", "Node.js"],
+      "requirements": ["5+ anos de experiência", "TypeScript avançado"],
+      "responsibilities": ["Desenvolver componentes", "Code reviews"],
+      "benefits": ["Seguro de saúde", "Trabalho remoto"],
+      "isFeatured": false,
+      "isUrgent": false,
+      "quickApply": false,
+      "publishedAt": "2025-01-15T10:00:00Z",
+      "viewsCount": 150,
+      "company": {
+        "id": "company-uuid",
+        "name": "Tech Solutions",
+        "logo": "https://..."
+      },
+      "_count": {
+        "applications": 25
+      }
+    }
+  ],
+  "pagination": {
+    "total": 45,
+    "page": 1,
+    "limit": 20,
+    "totalPages": 3
+  }
+}
+```
+
+**Exemplo de Resposta (candidato autenticado):**
+
+```json
+{
+  "jobs": [...],
+  "pagination": {...},
+  "matchScores": {
+    "uuid-123": 85,
+    "uuid-456": 72,
+    "uuid-789": 90
+  }
+}
+```
+
+**Erros:**
+
+```typescript
+// 400 - Validação
+{
+  "error": "VALIDATION_ERROR",
+  "message": "Dados inválidos",
+  "errors": [
+    {
+      "field": "salaryMin",
+      "message": "Salário mínimo deve ser entre 0 e 10000"
+    }
+  ],
+  "timestamp": "2025-01-15T10:00:00Z"
+}
+
+// 429 - Rate Limit
+{
+  "error": "TOO_MANY_SEARCH_REQUESTS",
+  "message": "Muitas pesquisas. Aguarde um momento.",
+  "timestamp": "2025-01-15T10:00:00Z"
+}
+```
+
+**Notas:**
+
+- Apenas vagas com `status: ACTIVE` e aprovadas são retornadas
+- Vagas em destaque (`isFeatured: true`) aparecem primeiro na ordenação
+- Match scores são calculados em tempo real baseado em:
+  - Skills do candidato vs skills da vaga (40%)
+  - Experiência do candidato vs nível requerido (30%)
+  - Localização do candidato vs localização da vaga (30%)
+- Cidades próximas recebem bonus de localização (ex: Castelo Branco ↔ Covilhã)
+- Resultados são cacheados por 5 minutos (apenas para requisições não autenticadas)
 
 ---
 

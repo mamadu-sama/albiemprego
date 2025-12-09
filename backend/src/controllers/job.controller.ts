@@ -1,8 +1,11 @@
 // Controller de gestão de vagas
 import { Request, Response, NextFunction } from "express";
 import { JobService } from "../services/job.service";
+import { JobSearchService, JobSearchFilters } from "../services/job-search.service";
+import { MatchService } from "../services/match.service";
 import { validationResult } from "express-validator";
 import { logger } from "../config/logger";
+import { JobType, WorkMode } from "@prisma/client";
 
 export class JobController {
   /**
@@ -271,6 +274,107 @@ export class JobController {
       return res.status(200).json(stats);
     } catch (error) {
       logger.error("Error getting jobs stats:", error);
+      return next(error);
+    }
+  }
+
+  /**
+   * GET /jobs/search - Busca pública avançada de vagas (autenticação opcional)
+   */
+  static async searchPublicJobs(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          error: "VALIDATION_ERROR",
+          message: "Dados inválidos",
+          errors: errors.array(),
+        });
+      }
+
+      const userId = req.user?.userId; // Opcional (para match score)
+      const userType = req.user?.userType;
+
+      // Construir filtros
+      const filters: JobSearchFilters = {
+        search: req.query.search as string,
+        location: req.query.location as string,
+        type: req.query.type
+          ? Array.isArray(req.query.type)
+            ? (req.query.type as JobType[])
+            : [req.query.type as JobType]
+          : undefined,
+        workMode: req.query.workMode
+          ? Array.isArray(req.query.workMode)
+            ? (req.query.workMode as WorkMode[])
+            : [req.query.workMode as WorkMode]
+          : undefined,
+        salaryMin: req.query.salaryMin
+          ? parseInt(req.query.salaryMin as string)
+          : undefined,
+        salaryMax: req.query.salaryMax
+          ? parseInt(req.query.salaryMax as string)
+          : undefined,
+        showSalaryOnly: req.query.showSalaryOnly === "true",
+        sector: req.query.sector as string,
+        experienceLevel: req.query.experienceLevel as string,
+        goodMatchesOnly: req.query.goodMatchesOnly === "true",
+        sortBy: (req.query.sortBy as any) || "recent",
+        page: req.query.page ? parseInt(req.query.page as string) : 1,
+        limit: req.query.limit ? parseInt(req.query.limit as string) : 20,
+      };
+
+      // Calcular match scores se utilizador autenticado e for candidato
+      let matchScores: Record<string, number> | undefined;
+
+      if (userId && userType === "CANDIDATO") {
+        // Primeiro buscar vagas sem filtro de match para calcular scores
+        const initialResults = await JobSearchService.searchJobs({
+          ...filters,
+          goodMatchesOnly: false, // Desabilitar temporariamente
+        });
+
+        // Calcular match scores para todas as vagas
+        const jobIds = initialResults.jobs.map((job) => job.id);
+        const matchResults = await MatchService.calculateBulkMatchScores(
+          jobIds,
+          userId
+        );
+
+        // Converter para formato simples (apenas overall score)
+        matchScores = {};
+        for (const [jobId, result] of Object.entries(matchResults)) {
+          matchScores[jobId] = result.overall;
+        }
+
+        // Agora buscar novamente com filtro de match se necessário
+        if (filters.goodMatchesOnly) {
+          const result = await JobSearchService.searchJobs(
+            filters,
+            matchScores
+          );
+
+          return res.status(200).json({
+            ...result,
+            matchScores,
+          });
+        }
+      }
+
+      // Buscar vagas
+      const result = await JobSearchService.searchJobs(filters, matchScores);
+
+      // Retornar com ou sem match scores
+      return res.status(200).json({
+        ...result,
+        ...(matchScores && { matchScores }),
+      });
+    } catch (error) {
+      logger.error("Error searching jobs:", error);
       return next(error);
     }
   }

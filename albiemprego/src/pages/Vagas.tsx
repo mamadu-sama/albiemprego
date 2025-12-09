@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useSearchParams, Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { JobCard, Job } from "@/components/jobs/JobCard";
@@ -21,7 +22,9 @@ import {
   ChevronRight,
   Target,
   Euro,
-  Eye
+  Eye,
+  Loader2,
+  AlertCircle
 } from "lucide-react";
 import {
   Sheet,
@@ -37,23 +40,66 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { generateRandomMatchScore } from "@/utils/mockMatchScore";
+import { useAuth } from "@/contexts/AuthContext";
+import { jobApi, JobSearchFilters } from "@/lib/api";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
-// Mock jobs data
-const allJobs: Job[] = [
-  { id: "1", title: "Engenheiro de Software Full Stack", company: "TechCast Solutions", location: "Castelo Branco", contractType: "Permanente", workMode: "Híbrido", salary: "35.000€ - 45.000€/ano", postedAt: "Há 2 dias", isFeatured: true, quickApply: true },
-  { id: "2", title: "Enfermeiro/a - Urgência", company: "Hospital Amato Lusitano", location: "Castelo Branco", contractType: "Permanente", workMode: "Presencial", salary: "1.800€ - 2.200€/mês", postedAt: "Há 1 dia", isNew: true },
-  { id: "3", title: "Gestor Comercial", company: "Beira Interior Consulting", location: "Covilhã", contractType: "Permanente", workMode: "Presencial", salary: "1.500€ + comissões", postedAt: "Há 3 dias", isFeatured: true },
-  { id: "4", title: "Designer Gráfico", company: "Creative Studio CB", location: "Castelo Branco", contractType: "Part-time", workMode: "Remoto", postedAt: "Há 5 dias", quickApply: true },
-  { id: "5", title: "Técnico de Contabilidade", company: "Gabinete Contas Certas", location: "Fundão", contractType: "Permanente", workMode: "Presencial", salary: "1.200€ - 1.500€/mês", postedAt: "Há 1 semana", isNew: true },
-  { id: "6", title: "Assistente Administrativo/a", company: "Município de Idanha-a-Nova", location: "Idanha-a-Nova", contractType: "Temporário", workMode: "Presencial", postedAt: "Há 4 dias" },
-  { id: "7", title: "Chef de Cozinha", company: "Hotel & Spa Serra da Estrela", location: "Covilhã", contractType: "Permanente", workMode: "Presencial", salary: "1.400€ - 1.800€/mês", postedAt: "Há 6 dias" },
-  { id: "8", title: "Estágio - Marketing Digital", company: "Digital Beira", location: "Castelo Branco", contractType: "Estágio", workMode: "Híbrido", postedAt: "Há 2 dias", isNew: true, quickApply: true },
-  { id: "9", title: "Mecânico Automóvel", company: "AutoCenter CB", location: "Castelo Branco", contractType: "Permanente", workMode: "Presencial", salary: "1.100€ - 1.400€/mês", postedAt: "Há 1 semana" },
-  { id: "10", title: "Professor/a de Inglês", company: "Centro de Estudos Elite", location: "Covilhã", contractType: "Part-time", workMode: "Presencial", postedAt: "Há 3 dias" },
-  { id: "11", title: "Farmacêutico/a", company: "Farmácia Central", location: "Fundão", contractType: "Permanente", workMode: "Presencial", salary: "1.600€ - 2.000€/mês", postedAt: "Há 5 dias" },
-  { id: "12", title: "Operador de Armazém", company: "Logística Beira", location: "Castelo Branco", contractType: "Temporário", workMode: "Presencial", salary: "900€/mês", postedAt: "Há 2 dias", isNew: true },
-];
+// Mapear tipos do frontend para tipos da API
+const contractTypeMap: Record<string, string> = {
+  "Permanente": "FULL_TIME",
+  "Temporário": "TEMPORARY",
+  "Estágio": "INTERNSHIP",
+  "Part-time": "PART_TIME",
+  "Freelance": "FREELANCE"
+};
+
+const workModeMap: Record<string, string> = {
+  "Presencial": "PRESENCIAL",
+  "Remoto": "REMOTO",
+  "Híbrido": "HIBRIDO"
+};
+
+// Converter job da API para formato do JobCard
+function convertApiJobToCardJob(apiJob: any, matchScore?: number): Job {
+  const salaryText = apiJob.showSalary && apiJob.salaryMin && apiJob.salaryMax
+    ? `${apiJob.salaryMin}€ - ${apiJob.salaryMax}€/${apiJob.salaryPeriod === 'month' ? 'mês' : 'ano'}`
+    : undefined;
+
+  const contractTypeReverse: Record<string, string> = {
+    "FULL_TIME": "Permanente",
+    "PART_TIME": "Part-time",
+    "TEMPORARY": "Temporário",
+    "INTERNSHIP": "Estágio",
+    "FREELANCE": "Freelance"
+  };
+
+  const workModeReverse: Record<string, string> = {
+    "PRESENCIAL": "Presencial",
+    "REMOTO": "Remoto",
+    "HIBRIDO": "Híbrido"
+  };
+
+  const postedDate = apiJob.publishedAt 
+    ? formatDistanceToNow(new Date(apiJob.publishedAt), { addSuffix: true, locale: ptBR })
+    : "Recente";
+
+  return {
+    id: apiJob.id,
+    title: apiJob.title,
+    company: apiJob.company?.name || "Empresa",
+    location: apiJob.location,
+    contractType: contractTypeReverse[apiJob.type] || apiJob.type,
+    workMode: workModeReverse[apiJob.workMode] || apiJob.workMode,
+    salary: salaryText,
+    postedAt: postedDate,
+    isFeatured: apiJob.isFeatured || false,
+    isUrgent: apiJob.isUrgent || false,
+    quickApply: apiJob.quickApply || false,
+    isNew: apiJob.publishedAt && (Date.now() - new Date(apiJob.publishedAt).getTime() < 3 * 24 * 60 * 60 * 1000),
+    matchScore: matchScore
+  };
+}
 
 const municipalities = [
   "Todos os concelhos",
@@ -259,6 +305,7 @@ return (
 }
 
 export default function VagasPage() {
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const [query, setQuery] = useState(searchParams.get("q") || "");
   const [selectedLocation, setSelectedLocation] = useState(searchParams.get("loc") || "Todos os concelhos");
@@ -269,23 +316,59 @@ export default function VagasPage() {
   const [sortBy, setSortBy] = useState("recent");
   const [currentPage, setCurrentPage] = useState(1);
   const [savedJobs, setSavedJobs] = useState<string[]>([]);
-const [showOnlyGoodMatches, setShowOnlyGoodMatches] = useState(
+  const [showOnlyGoodMatches, setShowOnlyGoodMatches] = useState(
     searchParams.get("goodMatches") === "true"
   );
   const [showOnlySalaryVisible, setShowOnlySalaryVisible] = useState(
     searchParams.get("salaryOnly") === "true"
   );
 
-  // Mock authentication state - replace with real auth when available
-  const isAuthenticated = true;
-  const userType: 'candidato' | 'empresa' | null = 'candidato';
+  const isAuthenticated = !!user;
+  const userType = user?.type === "CANDIDATO" ? "candidato" : user?.type === "EMPRESA" ? "empresa" : null;
 
-  const jobsPerPage = 12;
+  const jobsPerPage = 20;
 
-  // Count jobs with visible salary
+  // Construir filtros para API
+  const apiFilters: JobSearchFilters = useMemo(() => {
+    return {
+      search: query || undefined,
+      location: selectedLocation !== "Todos os concelhos" ? selectedLocation : undefined,
+      type: selectedContracts.length > 0 
+        ? selectedContracts.map(ct => contractTypeMap[ct]).filter(Boolean)
+        : undefined,
+      workMode: selectedWorkModes.length > 0
+        ? selectedWorkModes.map(wm => workModeMap[wm]).filter(Boolean)
+        : undefined,
+      salaryMin: salaryRange[0] > 0 ? salaryRange[0] : undefined,
+      salaryMax: salaryRange[1] < 5000 ? salaryRange[1] : undefined,
+      showSalaryOnly: showOnlySalaryVisible || undefined,
+      goodMatchesOnly: showOnlyGoodMatches || undefined,
+      sortBy: sortBy as any,
+      page: currentPage,
+      limit: jobsPerPage,
+    };
+  }, [query, selectedLocation, selectedContracts, selectedWorkModes, salaryRange, showOnlyGoodMatches, showOnlySalaryVisible, sortBy, currentPage]);
+
+  // Buscar vagas da API
+  const { data: jobsData, isLoading, isError, error } = useQuery({
+    queryKey: ["publicJobs", apiFilters],
+    queryFn: () => jobApi.searchJobs(apiFilters),
+    staleTime: 1000 * 60 * 2, // 2 minutos
+  });
+
+  // Converter jobs da API para formato do JobCard
+  const displayJobs = useMemo(() => {
+    if (!jobsData) return [];
+    
+    return jobsData.jobs.map(job => 
+      convertApiJobToCardJob(job, jobsData.matchScores?.[job.id])
+    );
+  }, [jobsData]);
+
+  // Count jobs with visible salary (from API stats if available)
   const salaryVisibleCount = useMemo(() => {
-    return allJobs.filter(job => job.salary).length;
-  }, []);
+    return displayJobs.filter(job => job.salary).length;
+  }, [displayJobs]);
 
   const clearFilters = () => {
     setSelectedLocation("Todos os concelhos");
@@ -295,6 +378,7 @@ const [showOnlyGoodMatches, setShowOnlyGoodMatches] = useState(
     setQuery("");
     setShowOnlyGoodMatches(false);
     setShowOnlySalaryVisible(false);
+    setCurrentPage(1);
   };
 
   const toggleSaveJob = (id: string) => {
@@ -305,53 +389,16 @@ const [showOnlyGoodMatches, setShowOnlyGoodMatches] = useState(
     );
   };
 
-  // Filter jobs
-  const filteredJobs = useMemo(() => {
-    let jobs = allJobs;
-    
-    // Text search filter
-    if (query) {
-      jobs = jobs.filter(job => 
-        job.title.toLowerCase().includes(query.toLowerCase()) || 
-        job.company.toLowerCase().includes(query.toLowerCase())
-      );
-    }
-    
-    // Location filter
-    if (selectedLocation !== "Todos os concelhos") {
-      jobs = jobs.filter(job => job.location === selectedLocation);
-    }
-    
-    // Contract type filter
-    if (selectedContracts.length > 0) {
-      jobs = jobs.filter(job => selectedContracts.includes(job.contractType));
-    }
-    
-    // Work mode filter
-    if (selectedWorkModes.length > 0) {
-      jobs = jobs.filter(job => selectedWorkModes.includes(job.workMode));
-    }
-    
-    // Match score filter - only for authenticated candidates
-    if (showOnlyGoodMatches && isAuthenticated && userType === 'candidato') {
-      jobs = jobs.filter(job => generateRandomMatchScore(job.id) >= 70);
-    }
-    
-    return jobs;
-  }, [query, selectedLocation, selectedContracts, selectedWorkModes, showOnlyGoodMatches, isAuthenticated, userType]);
-
-  const totalPages = Math.ceil(filteredJobs.length / jobsPerPage);
-  const paginatedJobs = filteredJobs.slice(
-    (currentPage - 1) * jobsPerPage,
-    currentPage * jobsPerPage
-  );
+  const totalPages = jobsData?.pagination.totalPages || 0;
+  const totalResults = jobsData?.pagination.total || 0;
 
   const activeFiltersCount = 
     (selectedLocation !== "Todos os concelhos" ? 1 : 0) +
     selectedContracts.length +
     selectedWorkModes.length +
     (salaryRange[0] > 0 || salaryRange[1] < 5000 ? 1 : 0) +
-    (showOnlyGoodMatches ? 1 : 0);
+    (showOnlyGoodMatches ? 1 : 0) +
+    (showOnlySalaryVisible ? 1 : 0);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -491,10 +538,22 @@ const [showOnlyGoodMatches, setShowOnlyGoodMatches] = useState(
               {/* Results Header */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                 <p className="text-muted-foreground">
-                  <span className="font-semibold text-foreground">{filteredJobs.length}</span> vagas encontradas
+                  {isLoading ? (
+                    <span>A carregar...</span>
+                  ) : (
+                    <>
+                      <span className="font-semibold text-foreground">{totalResults}</span> vagas encontradas
+                      {showOnlyGoodMatches && userType === "candidato" && (
+                        <Badge variant="secondary" className="ml-2">
+                          <Target className="h-3 w-3 mr-1" />
+                          Boas correspondências
+                        </Badge>
+                      )}
+                    </>
+                  )}
                 </p>
                 <div className="flex items-center gap-3">
-                  <Select value={sortBy} onValueChange={setSortBy}>
+                  <Select value={sortBy} onValueChange={(value) => { setSortBy(value); setCurrentPage(1); }}>
                     <SelectTrigger className="w-[180px]">
                       <SelectValue placeholder="Ordenar por" />
                     </SelectTrigger>
@@ -502,7 +561,9 @@ const [showOnlyGoodMatches, setShowOnlyGoodMatches] = useState(
                       <SelectItem value="recent">Mais Recentes</SelectItem>
                       <SelectItem value="salary-high">Salário (Maior)</SelectItem>
                       <SelectItem value="salary-low">Salário (Menor)</SelectItem>
-                      <SelectItem value="relevance">Relevância</SelectItem>
+                      {userType === "candidato" && (
+                        <SelectItem value="relevance">Relevância (Match)</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                   <div className="flex border border-border rounded-lg">
@@ -526,20 +587,49 @@ const [showOnlyGoodMatches, setShowOnlyGoodMatches] = useState(
                 </div>
               </div>
 
+              {/* Loading State */}
+              {isLoading && (
+                <div className="flex items-center justify-center py-12">
+                  <div className="text-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+                    <p className="text-muted-foreground">A carregar vagas...</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Error State */}
+              {isError && (
+                <div className="flex items-center justify-center py-12">
+                  <div className="text-center max-w-md">
+                    <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-4" />
+                    <p className="text-foreground font-medium mb-2">Erro ao carregar vagas</p>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      {(error as any)?.response?.data?.message || "Ocorreu um erro. Tente novamente."}
+                    </p>
+                    <Button onClick={() => window.location.reload()}>
+                      Tentar novamente
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {/* Jobs Grid/List */}
-              {paginatedJobs.length > 0 ? (
+              {!isLoading && !isError && displayJobs.length > 0 ? (
                 <>
                   <div className={viewMode === "grid" 
                     ? "grid md:grid-cols-2 xl:grid-cols-3 gap-4" 
                     : "space-y-4"
                   }>
-                    {paginatedJobs.map((job) => (
+                    {displayJobs.map((job) => (
                       <JobCard 
                         key={job.id} 
                         job={job} 
                         variant={viewMode === "list" ? "default" : "default"}
                         isSaved={savedJobs.includes(job.id)}
                         onSave={toggleSaveJob}
+                        showMatchScore={true}
+                        isAuthenticated={isAuthenticated}
+                        userType={userType}
                       />
                     ))}
                   </div>

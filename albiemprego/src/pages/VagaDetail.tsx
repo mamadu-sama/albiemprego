@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
@@ -8,7 +9,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { JobCard, Job } from "@/components/jobs/JobCard";
 import { MatchScoreCard, IncompleteProfileAlert } from "@/components/jobs/MatchScoreCard";
-import { generateRandomMatchScore, generateMockBreakdown } from "@/utils/mockMatchScore";
 import {
   Dialog,
   DialogContent,
@@ -42,102 +42,54 @@ import {
   Linkedin,
   Facebook,
   Twitter,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
-
-// Mock job data
-const jobData = {
-  id: "1",
-  title: "Engenheiro de Software Full Stack",
-  company: "TechCast Solutions",
-  companyLogo: "",
-  location: "Castelo Branco",
-  contractType: "Permanente",
-  workMode: "Híbrido",
-  salary: "35.000€ - 45.000€/ano",
-  postedAt: "Há 2 dias",
-  deadline: "30 de Janeiro, 2025",
-  views: 234,
-  applicants: 18,
-  seniority: "Pleno",
-  experience: "3-5 anos",
-  education: "Licenciatura em Eng. Informática ou similar",
-  description: `
-    Estamos à procura de um Engenheiro de Software Full Stack talentoso e motivado para se juntar à nossa equipa de desenvolvimento em Castelo Branco.
-
-    Somos uma empresa tecnológica em crescimento, focada em soluções inovadoras para o setor financeiro. Oferecemos um ambiente de trabalho dinâmico, projetos desafiantes e excelentes oportunidades de crescimento profissional.
-  `,
-  responsibilities: [
-    "Desenvolver e manter aplicações web utilizando React, Node.js e TypeScript",
-    "Colaborar com a equipa de design para implementar interfaces modernas e responsivas",
-    "Participar em code reviews e contribuir para a melhoria contínua dos processos",
-    "Integrar APIs e serviços de terceiros",
-    "Garantir a qualidade do código através de testes automatizados",
-    "Participar no planeamento e estimação de sprints",
-  ],
-  requirements: {
-    mustHave: [
-      "Experiência mínima de 3 anos em desenvolvimento Full Stack",
-      "Conhecimentos sólidos de React, Node.js e TypeScript",
-      "Experiência com bases de dados SQL e NoSQL",
-      "Familiaridade com metodologias ágeis (Scrum/Kanban)",
-      "Fluência em Português e bom nível de Inglês",
-    ],
-    niceToHave: [
-      "Experiência com AWS ou Google Cloud",
-      "Conhecimentos de Docker e Kubernetes",
-      "Experiência com GraphQL",
-      "Contribuições para projetos open-source",
-    ],
-  },
-  benefits: [
-    "Salário competitivo (35k-45k€/ano)",
-    "Modelo de trabalho híbrido (3 dias escritório, 2 dias remoto)",
-    "Seguro de saúde extensível ao agregado familiar",
-    "Orçamento anual para formação e certificações",
-    "MacBook Pro ou equipamento à escolha",
-    "Horário flexível",
-    "Fruta fresca e snacks no escritório",
-    "Team buildings e eventos sociais",
-  ],
-  skills: ["React", "Node.js", "TypeScript", "PostgreSQL", "MongoDB", "AWS", "Git", "REST APIs"],
-  companyInfo: {
-    name: "TechCast Solutions",
-    industry: "Tecnologia / FinTech",
-    size: "50-200 colaboradores",
-    founded: "2018",
-    website: "www.techcast.pt",
-    description: "A TechCast Solutions é uma empresa portuguesa de tecnologia especializada em soluções de software para o setor financeiro. Com sede em Castelo Branco, temos uma equipa jovem e dinâmica focada na inovação e qualidade.",
-  },
-};
-
-const similarJobs: Job[] = [
-  { id: "2", title: "Frontend Developer", company: "Digital Beira", location: "Castelo Branco", contractType: "Permanente", workMode: "Remoto", salary: "28.000€ - 35.000€/ano", postedAt: "Há 3 dias" },
-  { id: "3", title: "Backend Developer Node.js", company: "StartupCB", location: "Castelo Branco", contractType: "Permanente", workMode: "Híbrido", postedAt: "Há 1 semana" },
-  { id: "4", title: "DevOps Engineer", company: "CloudTech", location: "Covilhã", contractType: "Permanente", workMode: "Remoto", salary: "40.000€ - 50.000€/ano", postedAt: "Há 5 dias" },
-];
+import { useAuth } from "@/contexts/AuthContext";
+import { jobApi } from "@/lib/api";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 export default function VagaDetailPage() {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
   const [isSaved, setIsSaved] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [isApplied, setIsApplied] = useState(false);
 
-  // Mock authentication state - replace with real auth when available
-  const isAuthenticated = true;
-  const userType: 'candidato' | 'empresa' | null = 'candidato';
-  const profileCompleteness = 75; // Mock value
+  const isAuthenticated = !!user;
+  const userType = user?.type === "CANDIDATO" ? "candidato" : user?.type === "EMPRESA" ? "empresa" : null;
+  const profileCompleteness = user?.candidate?.profileCompleteness || 0;
 
-  // Calculate match score and breakdown
-  const matchScore = useMemo(() => {
-    if (!isAuthenticated || userType !== 'candidato') return null;
-    return generateRandomMatchScore(jobData.id);
-  }, [isAuthenticated, userType]);
+  // Buscar dados da vaga
+  const { data: jobData, isLoading, isError } = useQuery({
+    queryKey: ["job", id],
+    queryFn: () => jobApi.getJob(id!),
+    enabled: !!id,
+  });
 
-  const matchBreakdown = useMemo(() => {
-    if (!matchScore) return null;
-    return generateMockBreakdown(matchScore);
-  }, [matchScore]);
+  // Buscar vagas similares
+  const { data: similarJobsData } = useQuery({
+    queryKey: ["similarJobs", jobData?.location, jobData?.sector],
+    queryFn: () => jobApi.searchJobs({
+      location: jobData?.location,
+      sector: jobData?.sector,
+      limit: 3,
+    }),
+    enabled: !!jobData,
+  });
+
+  // Buscar match score (apenas para candidatos autenticados)
+  const { data: matchScoreData } = useQuery({
+    queryKey: ["matchScore", id],
+    queryFn: () => jobApi.getMatchScore(id!),
+    enabled: !!id && isAuthenticated && userType === "candidato",
+    retry: false, // Não retry se falhar (pode não ter candidato profile completo)
+  });
+
+  const matchScore = matchScoreData?.overall || null;
+  const matchBreakdown = matchScoreData?.breakdown || null;
 
   const handleApply = () => {
     setIsApplied(true);
@@ -155,6 +107,90 @@ export default function VagaDetailPage() {
       description: "O link da vaga foi copiado para a área de transferência.",
     });
   };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <Header />
+        <main className="flex-1">
+          <div className="container-custom py-8">
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+                <p className="text-muted-foreground">A carregar detalhes da vaga...</p>
+              </div>
+            </div>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  // Error state
+  if (isError || !jobData) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <Header />
+        <main className="flex-1">
+          <div className="container-custom py-8">
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center max-w-md">
+                <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-4" />
+                <p className="text-foreground font-medium mb-2">Vaga não encontrada</p>
+                <p className="text-sm text-muted-foreground mb-4">
+                  A vaga que procura não existe ou foi removida.
+                </p>
+                <Button asChild>
+                  <Link to="/vagas">Ver todas as vagas</Link>
+                </Button>
+              </div>
+            </div>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  // Mapear tipos para display
+  const contractTypeMap: Record<string, string> = {
+    "FULL_TIME": "Permanente",
+    "PART_TIME": "Part-time",
+    "TEMPORARY": "Temporário",
+    "INTERNSHIP": "Estágio",
+    "FREELANCE": "Freelance"
+  };
+
+  const workModeMap: Record<string, string> = {
+    "PRESENCIAL": "Presencial",
+    "REMOTO": "Remoto",
+    "HIBRIDO": "Híbrido"
+  };
+
+  const postedDate = jobData.publishedAt 
+    ? formatDistanceToNow(new Date(jobData.publishedAt), { addSuffix: true, locale: ptBR })
+    : "Recente";
+
+  const salaryText = jobData.showSalary && jobData.salaryMin && jobData.salaryMax
+    ? `${jobData.salaryMin}€ - ${jobData.salaryMax}€/${jobData.salaryPeriod === 'month' ? 'mês' : 'ano'}`
+    : null;
+
+  const similarJobs: Job[] = similarJobsData?.jobs.slice(0, 3).map(job => ({
+    id: job.id,
+    title: job.title,
+    company: job.company?.name || "Empresa",
+    location: job.location,
+    contractType: contractTypeMap[job.type] || job.type,
+    workMode: workModeMap[job.workMode] || job.workMode,
+    salary: job.showSalary && job.salaryMin && job.salaryMax
+      ? `${job.salaryMin}€ - ${job.salaryMax}€/${job.salaryPeriod === 'month' ? 'mês' : 'ano'}`
+      : undefined,
+    postedAt: job.publishedAt 
+      ? formatDistanceToNow(new Date(job.publishedAt), { addSuffix: true, locale: ptBR })
+      : "Recente",
+  })) || [];
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -191,37 +227,51 @@ export default function VagaDetailPage() {
               <div className="bg-card rounded-xl border border-border p-6 md:p-8">
                 <div className="flex gap-4 md:gap-6">
                   <div className="w-16 h-16 md:w-20 md:h-20 rounded-xl bg-muted flex items-center justify-center flex-shrink-0">
-                    <Building2 className="w-8 h-8 md:w-10 md:h-10 text-muted-foreground" />
+                    {jobData.company?.logo ? (
+                      <img src={jobData.company.logo} alt={jobData.company.name} className="w-full h-full object-cover rounded-xl" />
+                    ) : (
+                      <Building2 className="w-8 h-8 md:w-10 md:h-10 text-muted-foreground" />
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
                       {jobData.title}
                     </h1>
                     <p className="text-lg text-muted-foreground mb-4">
-                      {jobData.company}
+                      {jobData.company?.name || "Empresa"}
                     </p>
                     <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <MapPin className="h-4 w-4" />
                         {jobData.location}
                       </span>
-                      <span className="flex items-center gap-1">
-                        <Euro className="h-4 w-4" />
-                        {jobData.salary}
-                      </span>
+                      {salaryText && (
+                        <span className="flex items-center gap-1">
+                          <Euro className="h-4 w-4" />
+                          {salaryText}
+                        </span>
+                      )}
                       <span className="flex items-center gap-1">
                         <Clock className="h-4 w-4" />
-                        {jobData.postedAt}
+                        {postedDate}
                       </span>
                       <span className="flex items-center gap-1">
                         <Eye className="h-4 w-4" />
-                        {jobData.views} visualizações
+                        {jobData.viewsCount} visualizações
                       </span>
                     </div>
                     <div className="flex flex-wrap gap-2 mt-4">
-                      <Badge>{jobData.contractType}</Badge>
-                      <Badge variant="secondary">{jobData.workMode}</Badge>
-                      <Badge variant="outline">{jobData.seniority}</Badge>
+                      <Badge>{contractTypeMap[jobData.type] || jobData.type}</Badge>
+                      <Badge variant="secondary">{workModeMap[jobData.workMode] || jobData.workMode}</Badge>
+                      {jobData.experienceLevel && (
+                        <Badge variant="outline">{jobData.experienceLevel}</Badge>
+                      )}
+                      {jobData.isFeatured && (
+                        <Badge className="bg-primary">Em Destaque</Badge>
+                      )}
+                      {jobData.isUrgent && (
+                        <Badge variant="destructive">Urgente</Badge>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -249,13 +299,11 @@ export default function VagaDetailPage() {
               </div>
 
               {/* Requirements */}
-              <div className="bg-card rounded-xl border border-border p-6 md:p-8">
-                <h2 className="text-xl font-semibold text-foreground mb-6">Requisitos</h2>
-                
-                <div className="mb-6">
-                  <h3 className="font-medium text-foreground mb-3">Obrigatórios</h3>
+              {jobData.requirements && jobData.requirements.length > 0 && (
+                <div className="bg-card rounded-xl border border-border p-6 md:p-8">
+                  <h2 className="text-xl font-semibold text-foreground mb-6">Requisitos</h2>
                   <ul className="space-y-3">
-                    {jobData.requirements.mustHave.map((item, i) => (
+                    {jobData.requirements.map((item, i) => (
                       <li key={i} className="flex gap-3">
                         <CheckCircle2 className="h-5 w-5 text-success flex-shrink-0 mt-0.5" />
                         <span className="text-muted-foreground">{item}</span>
@@ -263,81 +311,60 @@ export default function VagaDetailPage() {
                     ))}
                   </ul>
                 </div>
+              )}
 
-                <div>
-                  <h3 className="font-medium text-foreground mb-3">Valorizados</h3>
-                  <ul className="space-y-3">
-                    {jobData.requirements.niceToHave.map((item, i) => (
+              {/* Skills */}
+              {jobData.skills && jobData.skills.length > 0 && (
+                <div className="bg-card rounded-xl border border-border p-6 md:p-8">
+                  <h2 className="text-xl font-semibold text-foreground mb-4">Competências</h2>
+                  <div className="flex flex-wrap gap-2">
+                    {jobData.skills.map((skill) => (
+                      <Badge key={skill} variant="outline" className="text-sm py-1 px-3">
+                        {skill}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Benefits */}
+              {jobData.benefits && jobData.benefits.length > 0 && (
+                <div className="bg-card rounded-xl border border-border p-6 md:p-8">
+                  <h2 className="text-xl font-semibold text-foreground mb-4">O Que Oferecemos</h2>
+                  <ul className="grid md:grid-cols-2 gap-3">
+                    {jobData.benefits.map((item, i) => (
                       <li key={i} className="flex gap-3">
-                        <CheckCircle2 className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                        <CheckCircle2 className="h-5 w-5 text-secondary flex-shrink-0 mt-0.5" />
                         <span className="text-muted-foreground">{item}</span>
                       </li>
                     ))}
                   </ul>
                 </div>
-              </div>
-
-              {/* Skills */}
-              <div className="bg-card rounded-xl border border-border p-6 md:p-8">
-                <h2 className="text-xl font-semibold text-foreground mb-4">Competências</h2>
-                <div className="flex flex-wrap gap-2">
-                  {jobData.skills.map((skill) => (
-                    <Badge key={skill} variant="outline" className="text-sm py-1 px-3">
-                      {skill}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-
-              {/* Benefits */}
-              <div className="bg-card rounded-xl border border-border p-6 md:p-8">
-                <h2 className="text-xl font-semibold text-foreground mb-4">O Que Oferecemos</h2>
-                <ul className="grid md:grid-cols-2 gap-3">
-                  {jobData.benefits.map((item, i) => (
-                    <li key={i} className="flex gap-3">
-                      <CheckCircle2 className="h-5 w-5 text-secondary flex-shrink-0 mt-0.5" />
-                      <span className="text-muted-foreground">{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              )}
 
               {/* Company Info */}
               <div className="bg-card rounded-xl border border-border p-6 md:p-8">
                 <h2 className="text-xl font-semibold text-foreground mb-4">Sobre a Empresa</h2>
-                <p className="text-muted-foreground mb-6">{jobData.companyInfo.description}</p>
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <div className="flex items-center gap-3">
-                    <Briefcase className="h-5 w-5 text-primary" />
-                    <div>
-                      <p className="text-sm text-muted-foreground">Setor</p>
-                      <p className="font-medium">{jobData.companyInfo.industry}</p>
-                    </div>
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                    {jobData.company?.logo ? (
+                      <img src={jobData.company.logo} alt={jobData.company.name} className="w-full h-full object-cover rounded-lg" />
+                    ) : (
+                      <Building2 className="w-6 w-6 text-muted-foreground" />
+                    )}
                   </div>
-                  <div className="flex items-center gap-3">
-                    <Users className="h-5 w-5 text-primary" />
-                    <div>
-                      <p className="text-sm text-muted-foreground">Dimensão</p>
-                      <p className="font-medium">{jobData.companyInfo.size}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Calendar className="h-5 w-5 text-primary" />
-                    <div>
-                      <p className="text-sm text-muted-foreground">Fundada em</p>
-                      <p className="font-medium">{jobData.companyInfo.founded}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Globe className="h-5 w-5 text-primary" />
-                    <div>
-                      <p className="text-sm text-muted-foreground">Website</p>
-                      <a href={`https://${jobData.companyInfo.website}`} className="font-medium text-primary hover:underline">
-                        {jobData.companyInfo.website}
-                      </a>
-                    </div>
+                  <div>
+                    <h3 className="font-semibold text-foreground">{jobData.company?.name || "Empresa"}</h3>
+                    {jobData.sector && (
+                      <p className="text-sm text-muted-foreground">{jobData.sector}</p>
+                    )}
                   </div>
                 </div>
+                <Link to={`/vagas?companyId=${jobData.companyId}`}>
+                  <Button variant="outline" className="w-full">
+                    Ver Todas as Vagas desta Empresa
+                  </Button>
+                </Link>
               </div>
             </div>
 

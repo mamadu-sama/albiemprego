@@ -52,3 +52,19 @@ export const publicLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+/**
+ * Rate limiter para busca de vagas
+ * 30 requisições por 1 minuto por IP
+ */
+export const searchLimiter = rateLimit({
+  windowMs: 60000, // 1 minuto
+  max: 30,
+  message: {
+    error: "TOO_MANY_SEARCH_REQUESTS",
+    message: "Muitas pesquisas. Aguarde um momento.",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === "test",
+});
+

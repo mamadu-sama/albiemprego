@@ -8,6 +8,8 @@ import {
   getJobByIdValidation,
   listJobsValidation,
 } from "../validators/job.validator";
+import { searchJobsValidation } from "../validators/job-search.validator";
+import { searchLimiter } from "../middlewares/rateLimit";
 
 const router = Router();
 
@@ -36,8 +38,16 @@ router.get("/my-jobs", authenticateToken, authorize("EMPRESA"), JobController.ge
  */
 
 /**
+ * GET /jobs/search
+ * Busca pública avançada com filtros e Match Score (autenticação opcional)
+ * Suporta: busca texto, localização, tipo, workMode, salário, match score
+ * Rate limit: 30 requisições por minuto
+ */
+router.get("/search", searchLimiter, optionalAuth, searchJobsValidation, JobController.searchPublicJobs);
+
+/**
  * GET /jobs
- * Listar vagas públicas com filtros e paginação
+ * Listar vagas públicas com filtros e paginação (endpoint legado)
  */
 router.get("/", listJobsValidation, JobController.listJobs);
 

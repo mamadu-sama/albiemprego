@@ -72,6 +72,7 @@ import Suporte from "./pages/Suporte";
 import CandidatoMensagens from "./pages/candidato/Mensagens";
 import EmpresaMensagens from "./pages/empresa/Mensagens";
 import { useMessageNotifications } from "./hooks/useMessageNotifications";
+import { ProtectedRoute, GuestRoute } from "@/components/auth/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -98,58 +99,349 @@ function AppContent() {
       <MaintenanceBanner />
       <CookieConsent />
       <Routes>
+        {/* Public Routes */}
         <Route path="/" element={<Index />} />
         <Route path="/vagas" element={<Vagas />} />
         <Route path="/vagas/:id" element={<VagaDetail />} />
-        <Route path="/auth/login" element={<Login />} />
-        <Route path="/auth/register" element={<Register />} />
+        
+        {/* Auth Routes - Only for guests (non-authenticated users) */}
+        <Route path="/auth/login" element={<GuestRoute><Login /></GuestRoute>} />
+        <Route path="/auth/register" element={<GuestRoute><Register /></GuestRoute>} />
         <Route path="/auth/pending-approval" element={<PendingApproval />} />
-        <Route path="/auth/forgot-password" element={<ForgotPassword />} />
-        <Route path="/auth/reset-password" element={<ResetPassword />} />
-        {/* Candidate Routes */}
-        <Route path="/candidato/dashboard" element={<CandidatoDashboard />} />
-        <Route path="/candidato/candidaturas" element={<CandidatoCandidaturas />} />
-        <Route path="/candidato/perfil" element={<CandidatoPerfil />} />
-        <Route path="/candidato/perfil/editar" element={<EditarPerfil />} />
-        <Route path="/candidato/alertas" element={<Alertas />} />
-        <Route path="/candidato/conta" element={<CandidatoConta />} />
-        <Route path="/candidato/mensagens" element={<CandidatoMensagens />} />
-        <Route path="/candidato/mensagens/:conversationId" element={<CandidatoMensagens />} />
-        {/* Company Routes */}
-        <Route path="/empresa/dashboard" element={<EmpresaDashboard />} />
-        <Route path="/empresa/vagas" element={<EmpresaVagas />} />
-        <Route path="/empresa/vagas/nova" element={<NovaVaga />} />
-        <Route path="/empresa/vagas/:id/editar" element={<EditarVaga />} />
-        <Route path="/empresa/vagas/:id/candidaturas" element={<VagaCandidaturas />} />
-        <Route path="/empresa/candidaturas" element={<EmpresaCandidaturas />} />
-        <Route path="/empresa/candidato/:id" element={<PerfilCandidato />} />
-        <Route path="/empresa/candidato/:id/email" element={<EnviarEmail />} />
-        <Route path="/empresa/perfil/editar" element={<EditarPerfilEmpresa />} />
-        <Route path="/empresa/perfil" element={<EmpresaPerfil />} />
-        <Route path="/empresa/rascunhos" element={<Rascunhos />} />
-        <Route path="/empresa/conta" element={<EmpresaConta />} />
-        <Route path="/empresa/planos" element={<EmpresaPlanos />} />
-        <Route path="/empresa/vagas/:id/destacar" element={<DestacarVaga />} />
-        <Route path="/empresa/mensagens" element={<EmpresaMensagens />} />
-        <Route path="/empresa/mensagens/:conversationId" element={<EmpresaMensagens />} />
-        {/* Admin Routes */}
-        <Route path="/admin/dashboard" element={<AdminDashboard />} />
-        <Route path="/admin/utilizadores" element={<AdminUtilizadores />} />
-        <Route path="/admin/empresas" element={<AdminEmpresas />} />
-        <Route path="/admin/vagas" element={<AdminVagas />} />
-        <Route path="/admin/denuncias" element={<AdminDenuncias />} />
-        <Route path="/admin/aprovacoes" element={<AdminAprovacoes />} />
-        <Route path="/admin/configuracoes" element={<AdminConfiguracoes />} />
-        <Route path="/admin/relatorios" element={<AdminRelatorios />} />
-        <Route path="/admin/notificacoes" element={<AdminNotificacoes />} />
-        <Route path="/admin/conteudo/:pageId" element={<EditarConteudo />} />
-        <Route path="/admin/utilizador/:id" element={<AdminPerfilUtilizador />} />
-        <Route path="/admin/utilizador/:id/email" element={<EnviarEmailAdmin />} />
-        <Route path="/admin/empresa/:id" element={<AdminPerfilEmpresa />} />
-        <Route path="/admin/empresa/:id/email" element={<EnviarEmailAdmin />} />
-        <Route path="/admin/planos" element={<AdminGerirPlanos />} />
-        <Route path="/admin/mensagens" element={<AdminMensagens />} />
-        <Route path="/admin/mensagens/:conversationId" element={<AdminMensagens />} />
+        <Route path="/auth/forgot-password" element={<GuestRoute><ForgotPassword /></GuestRoute>} />
+        <Route path="/auth/reset-password" element={<GuestRoute><ResetPassword /></GuestRoute>} />
+        
+        {/* Candidate Routes - Only for authenticated candidates */}
+        <Route 
+          path="/candidato/dashboard" 
+          element={
+            <ProtectedRoute requiredType="CANDIDATO">
+              <CandidatoDashboard />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/candidato/candidaturas" 
+          element={
+            <ProtectedRoute requiredType="CANDIDATO">
+              <CandidatoCandidaturas />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/candidato/perfil" 
+          element={
+            <ProtectedRoute requiredType="CANDIDATO">
+              <CandidatoPerfil />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/candidato/perfil/editar" 
+          element={
+            <ProtectedRoute requiredType="CANDIDATO">
+              <EditarPerfil />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/candidato/alertas" 
+          element={
+            <ProtectedRoute requiredType="CANDIDATO">
+              <Alertas />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/candidato/conta" 
+          element={
+            <ProtectedRoute requiredType="CANDIDATO">
+              <CandidatoConta />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/candidato/mensagens" 
+          element={
+            <ProtectedRoute requiredType="CANDIDATO">
+              <CandidatoMensagens />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/candidato/mensagens/:conversationId" 
+          element={
+            <ProtectedRoute requiredType="CANDIDATO">
+              <CandidatoMensagens />
+            </ProtectedRoute>
+          } 
+        />
+        {/* Company Routes - Only for authenticated companies */}
+        <Route 
+          path="/empresa/dashboard" 
+          element={
+            <ProtectedRoute requiredType="EMPRESA">
+              <EmpresaDashboard />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/empresa/vagas" 
+          element={
+            <ProtectedRoute requiredType="EMPRESA">
+              <EmpresaVagas />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/empresa/vagas/nova" 
+          element={
+            <ProtectedRoute requiredType="EMPRESA">
+              <NovaVaga />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/empresa/vagas/:id/editar" 
+          element={
+            <ProtectedRoute requiredType="EMPRESA">
+              <EditarVaga />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/empresa/vagas/:id/candidaturas" 
+          element={
+            <ProtectedRoute requiredType="EMPRESA">
+              <VagaCandidaturas />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/empresa/candidaturas" 
+          element={
+            <ProtectedRoute requiredType="EMPRESA">
+              <EmpresaCandidaturas />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/empresa/candidato/:id" 
+          element={
+            <ProtectedRoute requiredType="EMPRESA">
+              <PerfilCandidato />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/empresa/candidato/:id/email" 
+          element={
+            <ProtectedRoute requiredType="EMPRESA">
+              <EnviarEmail />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/empresa/perfil/editar" 
+          element={
+            <ProtectedRoute requiredType="EMPRESA">
+              <EditarPerfilEmpresa />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/empresa/perfil" 
+          element={
+            <ProtectedRoute requiredType="EMPRESA">
+              <EmpresaPerfil />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/empresa/rascunhos" 
+          element={
+            <ProtectedRoute requiredType="EMPRESA">
+              <Rascunhos />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/empresa/conta" 
+          element={
+            <ProtectedRoute requiredType="EMPRESA">
+              <EmpresaConta />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/empresa/planos" 
+          element={
+            <ProtectedRoute requiredType="EMPRESA">
+              <EmpresaPlanos />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/empresa/vagas/:id/destacar" 
+          element={
+            <ProtectedRoute requiredType="EMPRESA">
+              <DestacarVaga />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/empresa/mensagens" 
+          element={
+            <ProtectedRoute requiredType="EMPRESA">
+              <EmpresaMensagens />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/empresa/mensagens/:conversationId" 
+          element={
+            <ProtectedRoute requiredType="EMPRESA">
+              <EmpresaMensagens />
+            </ProtectedRoute>
+          } 
+        />
+        {/* Admin Routes - Only for authenticated admins */}
+        <Route 
+          path="/admin/dashboard" 
+          element={
+            <ProtectedRoute requiredType="ADMIN">
+              <AdminDashboard />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/utilizadores" 
+          element={
+            <ProtectedRoute requiredType="ADMIN">
+              <AdminUtilizadores />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/empresas" 
+          element={
+            <ProtectedRoute requiredType="ADMIN">
+              <AdminEmpresas />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/vagas" 
+          element={
+            <ProtectedRoute requiredType="ADMIN">
+              <AdminVagas />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/denuncias" 
+          element={
+            <ProtectedRoute requiredType="ADMIN">
+              <AdminDenuncias />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/aprovacoes" 
+          element={
+            <ProtectedRoute requiredType="ADMIN">
+              <AdminAprovacoes />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/configuracoes" 
+          element={
+            <ProtectedRoute requiredType="ADMIN">
+              <AdminConfiguracoes />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/relatorios" 
+          element={
+            <ProtectedRoute requiredType="ADMIN">
+              <AdminRelatorios />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/notificacoes" 
+          element={
+            <ProtectedRoute requiredType="ADMIN">
+              <AdminNotificacoes />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/conteudo/:pageId" 
+          element={
+            <ProtectedRoute requiredType="ADMIN">
+              <EditarConteudo />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/utilizador/:id" 
+          element={
+            <ProtectedRoute requiredType="ADMIN">
+              <AdminPerfilUtilizador />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/utilizador/:id/email" 
+          element={
+            <ProtectedRoute requiredType="ADMIN">
+              <EnviarEmailAdmin />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/empresa/:id" 
+          element={
+            <ProtectedRoute requiredType="ADMIN">
+              <AdminPerfilEmpresa />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/empresa/:id/email" 
+          element={
+            <ProtectedRoute requiredType="ADMIN">
+              <EnviarEmailAdmin />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/planos" 
+          element={
+            <ProtectedRoute requiredType="ADMIN">
+              <AdminGerirPlanos />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/mensagens" 
+          element={
+            <ProtectedRoute requiredType="ADMIN">
+              <AdminMensagens />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/mensagens/:conversationId" 
+          element={
+            <ProtectedRoute requiredType="ADMIN">
+              <AdminMensagens />
+            </ProtectedRoute>
+          } 
+        />
         {/* Static Pages */}
         <Route path="/sobre" element={<Sobre />} />
         <Route path="/contacto" element={<Contacto />} />
@@ -161,14 +453,29 @@ function AppContent() {
         {/* Community Routes */}
         <Route path="/comunidade" element={<ComunidadeIndex />} />
         <Route path="/comunidade/discussoes" element={<Discussoes />} />
-        <Route path="/comunidade/discussoes/nova" element={<NovaDiscussao />} />
+        <Route 
+          path="/comunidade/discussoes/nova" 
+          element={
+            <ProtectedRoute>
+              <NovaDiscussao />
+            </ProtectedRoute>
+          } 
+        />
         <Route path="/comunidade/discussoes/:id" element={<DiscussaoDetail />} />
         <Route path="/comunidade/eventos" element={<Eventos />} />
         <Route path="/comunidade/eventos/:id" element={<EventoDetail />} />
         <Route path="/comunidade/membros" element={<Membros />} />
         <Route path="/comunidade/membros/:id" element={<MembroPerfil />} />
-        {/* Support Route */}
-        <Route path="/suporte" element={<Suporte />} />
+        
+        {/* Support Route - requires authentication */}
+        <Route 
+          path="/suporte" 
+          element={
+            <ProtectedRoute>
+              <Suporte />
+            </ProtectedRoute>
+          } 
+        />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </MessageNotificationProvider>

@@ -263,6 +263,11 @@ model Job {
   rejectedAt      DateTime?
   rejectionReason String?
 
+  // Campos de destaque e urgência
+  isFeatured Boolean @default(false) // Vaga em destaque (paga)
+  isUrgent   Boolean @default(false) // Vaga urgente
+  quickApply Boolean @default(false) // Candidatura rápida sem CV
+
   // Relações
   applications Application[]
 
@@ -272,6 +277,8 @@ model Job {
   @@index([companyId])
   @@index([status, publishedAt])
   @@index([location, status])
+  @@index([isFeatured, publishedAt])
+  @@index([location, status, isFeatured])
   @@map("jobs")
 }
 

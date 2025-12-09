@@ -459,6 +459,9 @@ export interface Job {
   publishedAt?: string;
   rejectedAt?: string;
   rejectionReason?: string;
+  isFeatured?: boolean;
+  isUrgent?: boolean;
+  quickApply?: boolean;
   createdAt: string;
   updatedAt: string;
   company?: {
@@ -470,6 +473,7 @@ export interface Job {
   _count?: {
     applications: number;
   };
+  matchScore?: number; // Score de match (apenas para candidatos autenticados)
 }
 
 export interface CreateJobDTO {
@@ -509,6 +513,22 @@ export interface JobFilters {
   limit?: number;
 }
 
+export interface JobSearchFilters {
+  search?: string;
+  location?: string;
+  type?: string | string[];
+  workMode?: string | string[];
+  salaryMin?: number;
+  salaryMax?: number;
+  showSalaryOnly?: boolean;
+  sector?: string;
+  experienceLevel?: string;
+  goodMatchesOnly?: boolean;
+  sortBy?: "recent" | "salary-high" | "salary-low" | "relevance";
+  page?: number;
+  limit?: number;
+}
+
 export interface JobsResponse {
   jobs: Job[];
   pagination: {
@@ -517,6 +537,13 @@ export interface JobsResponse {
     limit: number;
     totalPages: number;
   };
+  matchScores?: Record<string, number>; // jobId -> score (apenas para candidatos)
+}
+
+export interface MatchScoreBreakdown {
+  skills: number;
+  experience: number;
+  location: number;
 }
 
 export const jobApi = {
@@ -593,6 +620,41 @@ export const jobApi = {
     totalViews: number;
   }> {
     const response = await api.get('/jobs/my-jobs/stats');
+    return response.data;
+  },
+
+  /**
+   * Busca pública avançada de vagas com filtros e Match Score
+   * Autenticação opcional - se autenticado como candidato, retorna match scores
+   */
+  async searchJobs(filters?: JobSearchFilters): Promise<JobsResponse> {
+    const params = new URLSearchParams();
+    
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          // Se for array (type ou workMode), adicionar cada valor separadamente
+          if (Array.isArray(value)) {
+            value.forEach((v) => params.append(key, v.toString()));
+          } else {
+            params.append(key, value.toString());
+          }
+        }
+      });
+    }
+
+    const response = await api.get(`/jobs/search?${params.toString()}`);
+    return response.data;
+  },
+
+  /**
+   * Calcula o match score para uma vaga específica
+   * Requer autenticação como candidato
+   */
+  async getMatchScore(
+    jobId: string
+  ): Promise<{ overall: number; breakdown: MatchScoreBreakdown }> {
+    const response = await api.get(`/jobs/${jobId}/match-score`);
     return response.data;
   },
 };
