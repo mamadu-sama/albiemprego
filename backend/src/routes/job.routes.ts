@@ -52,6 +52,12 @@ router.get("/search", searchLimiter, optionalAuth, searchJobsValidation, JobCont
 router.get("/", listJobsValidation, JobController.listJobs);
 
 /**
+ * GET /jobs/:id/match-score
+ * Calcular match score para uma vaga específica (apenas candidatos autenticados)
+ */
+router.get("/:id/match-score", authenticateToken, authorize("CANDIDATO"), getJobByIdValidation, JobController.getMatchScore);
+
+/**
  * GET /jobs/:id
  * Obter detalhes de uma vaga específica
  * Autenticação opcional para tracking de visualizações

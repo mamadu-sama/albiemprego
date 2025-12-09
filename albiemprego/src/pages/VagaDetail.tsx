@@ -517,16 +517,26 @@ export default function VagaDetailPage() {
                 <CardContent className="p-6">
                   <div className="flex items-center gap-4 mb-4">
                     <div className="w-14 h-14 rounded-xl bg-muted flex items-center justify-center">
-                      <Building2 className="w-7 h-7 text-muted-foreground" />
+                      {jobData.company?.logo ? (
+                        <img 
+                          src={jobData.company.logo} 
+                          alt={jobData.company.name} 
+                          className="w-full h-full object-cover rounded-xl" 
+                        />
+                      ) : (
+                        <Building2 className="w-7 h-7 text-muted-foreground" />
+                      )}
                     </div>
                     <div>
-                      <h3 className="font-semibold">{jobData.company}</h3>
-                      <p className="text-sm text-muted-foreground">{jobData.companyInfo.industry}</p>
+                      <h3 className="font-semibold">{jobData.company?.name || "Empresa"}</h3>
+                      {jobData.sector && (
+                        <p className="text-sm text-muted-foreground">{jobData.sector}</p>
+                      )}
                     </div>
                   </div>
-                  <Link to={`/empresas/${jobData.company}`}>
+                  <Link to={`/vagas?companyId=${jobData.companyId}`}>
                     <Button variant="outline" className="w-full">
-                      Ver Todas as Vagas
+                      Ver Todas as Vagas desta Empresa
                     </Button>
                   </Link>
                 </CardContent>

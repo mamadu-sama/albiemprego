@@ -378,5 +378,52 @@ export class JobController {
       return next(error);
     }
   }
+
+  /**
+   * GET /jobs/:id/match-score - Calcular match score para uma vaga específica (Candidato)
+   */
+  static async getMatchScore(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          error: "VALIDATION_ERROR",
+          message: "Dados inválidos",
+          errors: errors.array(),
+        });
+      }
+
+      const userId = req.user?.userId!;
+      const userType = req.user?.userType;
+      const { id: jobId } = req.params;
+
+      // Apenas candidatos podem calcular match score
+      if (userType !== "CANDIDATO") {
+        return res.status(403).json({
+          error: "FORBIDDEN",
+          message: "Apenas candidatos podem ver match score",
+        });
+      }
+
+      // Calcular match score
+      const matchScore = await MatchService.calculateMatchScore(jobId, userId);
+
+      if (!matchScore) {
+        return res.status(404).json({
+          error: "NOT_FOUND",
+          message: "Vaga não encontrada ou perfil incompleto",
+        });
+      }
+
+      return res.status(200).json(matchScore);
+    } catch (error) {
+      logger.error("Error calculating match score:", error);
+      return next(error);
+    }
+  }
 }
 
