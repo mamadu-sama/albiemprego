@@ -1,0 +1,368 @@
+// Prisma Schema para AlbiEmprego
+// Database: PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum UserType {
+  CANDIDATO
+  EMPRESA
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  PENDING
+  SUSPENDED
+}
+
+enum JobType {
+  FULL_TIME
+  PART_TIME
+  TEMPORARY
+  INTERNSHIP
+  FREELANCE
+}
+
+enum WorkMode {
+  PRESENCIAL
+  REMOTO
+  HIBRIDO
+}
+
+enum JobStatus {
+  DRAFT
+  PENDING
+  ACTIVE
+  PAUSED
+  CLOSED
+  REJECTED
+}
+
+enum ApplicationStatus {
+  NEW
+  VIEWED
+  IN_REVIEW
+  INTERVIEW
+  REJECTED
+  ACCEPTED
+}
+
+enum LanguageLevel {
+  BASIC
+  INTERMEDIATE
+  ADVANCED
+  NATIVE
+}
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ANNOUNCEMENT
+  PROMOTION
+  SYSTEM
+  MAINTENANCE
+}
+
+enum MessageStatus {
+  SENDING
+  SENT
+  DELIVERED
+  READ
+}
+
+// ============================================
+// MODELS
+// ============================================
+
+model User {
+  id       String     @id @default(uuid())
+  email    String     @unique
+  password String
+  name     String
+  phone    String?
+  location String?
+  avatar   String?
+  bio      String?
+  type     UserType
+  status   UserStatus @default(PENDING)
+
+  // Tokens de segurança
+  passwordResetToken       String?   @unique
+  passwordResetExpires     DateTime?
+  emailVerificationToken   String?   @unique
+  emailVerified            Boolean   @default(false)
+  emailVerificationExpires DateTime?
+
+  // Timestamps
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  lastLoginAt DateTime?
+
+  // Relações
+  candidate Candidate?
+  company   Company?
+
+  @@index([email])
+  @@index([type, status])
+  @@map("users")
+}
+
+model Candidate {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  cvUrl               String?
+  skills              String[]
+  experienceYears     Int?
+  currentPosition     String?
+  profileCompleteness Int      @default(0)
+
+  // Relações
+  experiences  Experience[]
+  educations   Education[]
+  languages    Language[]
+  applications Application[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("candidates")
+}
+
+model Company {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name        String
+  nif         String  @unique
+  website     String?
+  sector      String?
+  employees   String?
+  description String?
+  logo        String?
+
+  // Aprovação
+  approvedAt      DateTime?
+  rejectedAt      DateTime?
+  rejectionReason String?
+
+  // Relações
+  jobs Job[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([nif])
+  @@map("companies")
+}
+
+model Experience {
+  id          String    @id @default(uuid())
+  candidateId String
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  company     String
+  position    String
+  startDate   DateTime
+  endDate     DateTime?
+  current     Boolean   @default(false)
+  description String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([candidateId])
+  @@map("experiences")
+}
+
+model Education {
+  id          String    @id @default(uuid())
+  candidateId String
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  institution String
+  degree      String
+  field       String
+  startDate   DateTime
+  endDate     DateTime?
+  current     Boolean   @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([candidateId])
+  @@map("educations")
+}
+
+model Language {
+  id          String        @id @default(uuid())
+  candidateId String
+  candidate   Candidate     @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  language String
+  level    LanguageLevel
+
+  @@unique([candidateId, language])
+  @@map("languages")
+}
+
+model Job {
+  id        String  @id @default(uuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  title            String
+  department       String?
+  description      String
+  requirements     String[]
+  responsibilities String[]
+  benefits         String[]
+  skills           String[] // Competências requeridas
+
+  location String
+  address  String? // Morada específica (opcional)
+  type     JobType
+  workMode WorkMode
+
+  // Salário (opcional)
+  salaryMin      Decimal? @db.Decimal(10, 2)
+  salaryMax      Decimal? @db.Decimal(10, 2)
+  salaryCurrency String   @default("EUR")
+  salaryPeriod   String   @default("month") // "hour", "month", "year"
+  showSalary     Boolean  @default(false)
+
+  sector          String
+  experienceLevel String?
+
+  status JobStatus @default(DRAFT)
+
+  applicationDeadline DateTime?
+
+  // Métricas
+  viewsCount Int @default(0)
+
+  // Aprovação
+  approvedAt      DateTime?
+  publishedAt     DateTime?
+  rejectedAt      DateTime?
+  rejectionReason String?
+
+  // Relações
+  applications Application[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([status, publishedAt])
+  @@index([location, status])
+  @@map("jobs")
+}
+
+model Application {
+  id          String    @id @default(uuid())
+  jobId       String
+  job         Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  candidateId String
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  coverLetter String?
+  status      ApplicationStatus @default(NEW)
+
+  // Timeline de estados (JSON array)
+  timeline Json // Array de { status, date, note }
+
+  // Notas internas (empresa)
+  notes String?
+
+  appliedAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([jobId, candidateId])
+  @@index([candidateId, status])
+  @@index([jobId, status])
+  @@map("applications")
+}
+
+model Notification {
+  id     String           @id @default(uuid())
+  userId String
+  type   NotificationType
+  title  String
+  message String
+  read    Boolean @default(false)
+
+  actionUrl   String?
+  actionLabel String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+  @@map("notifications")
+}
+
+model Conversation {
+  id           String   @id @default(uuid())
+  participants String[] // Array de user IDs
+
+  // Contexto opcional
+  contextType  String? // "application", "job", "support"
+  contextId    String?
+  contextTitle String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages Message[]
+
+  @@map("conversations")
+}
+
+model Message {
+  id             String      @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  senderId String
+  content  String
+
+  attachments Json? // Array de attachments
+
+  status MessageStatus @default(SENT)
+
+  isSystem   Boolean @default(false)
+  systemType String?
+
+  sentAt DateTime  @default(now())
+  readAt DateTime?
+
+  @@index([conversationId])
+  @@map("messages")
+}
+
+model MaintenanceMode {
+  id               String    @id @default(uuid())
+  enabled          Boolean   @default(false)
+  message          String?
+  estimatedEndTime DateTime?
+  updatedAt        DateTime  @updatedAt
+
+  @@map("maintenance_mode")
+}
+

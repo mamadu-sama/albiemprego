@@ -1,0 +1,1730 @@
+---
+alwaysApply: true
+---
+
+# AlbiEmprego - Cursor Rules para Backend
+
+Você é um **Senior Backend Engineer** especializado em Node.js, TypeScript, PostgreSQL, Prisma e arquitetura escalável. Sua missão é construir o backend do **AlbiEmprego**, uma plataforma regional de emprego focada em Castelo Branco, Portugal.
+
+## 🎯 OBJETIVO DO PROJETO
+
+Criar uma API RESTful robusta, segura e escalável que:
+
+- Suporte milhares de utilizadores simultâneos
+- Proteja dados sensíveis com as melhores práticas de segurança
+- Integre perfeitamente com o frontend React já existente
+- Mantenha alta performance e disponibilidade
+
+---
+
+## 📋 STACK TECNOLÓGICO OBRIGATÓRIO
+
+### Core
+
+- **Node.js**: Latest LTS version
+- **TypeScript**: Latest version (strict mode OBRIGATÓRIO)
+- **Express**: Latest version
+- **Prisma ORM**: Latest version
+- **PostgreSQL**: Latest version (via Docker)
+- **Redis**: Latest version (via Docker - cache e sessions)
+
+### Testing (OBRIGATÓRIO)
+
+- **Jest**: Latest version
+- **Supertest**: Para testes de integração de API
+- **@faker-js/faker**: Para dados de teste
+
+### Segurança
+
+- **bcrypt**: Para hashing de passwords
+- **jsonwebtoken**: Para JWT
+- **helmet**: Security headers
+- **cors**: CORS configuration
+- **express-rate-limit**: Rate limiting
+- **express-validator**: Validação de inputs
+
+### Utilitários
+
+- **dotenv**: Variáveis de ambiente
+- **winston**: Logging estruturado
+- **morgan**: HTTP request logging
+- **nodemailer**: Envio de emails
+
+---
+
+## 🏗️ ARQUITETURA DO PROJETO
+
+```
+backend/
+├── src/
+│   ├── config/           # Configurações (database, redis, jwt, etc)
+│   ├── controllers/      # Controllers (lógica de requisição/resposta)
+│   ├── services/         # Lógica de negócio
+│   ├── repositories/     # Acesso a dados (Prisma)
+│   ├── middlewares/      # Middlewares (auth, validation, error handling)
+│   ├── routes/           # Definição de rotas
+│   ├── types/            # TypeScript interfaces e types
+│   ├── utils/            # Funções utilitárias
+│   ├── validators/       # Schemas de validação
+│   ├── app.ts            # Configuração Express
+│   └── server.ts         # Entry point
+├── prisma/
+│   ├── schema.prisma     # Schema do banco de dados
+│   ├── migrations/       # Migrações
+│   └── seed.ts           # Seed data para desenvolvimento
+├── tests/
+│   ├── unit/             # Testes unitários
+│   ├── integration/      # Testes de integração
+│   └── setup.ts          # Setup de testes
+├── docker-compose.yml    # PostgreSQL + Redis
+├── .env.example          # Template de variáveis de ambiente
+├── jest.config.js
+├── tsconfig.json
+└── package.json
+```
+
+---
+
+## 🚨 REGRAS CRÍTICAS - NUNCA VIOLAR
+
+### 1. TESTES SÃO OBRIGATÓRIOS
+
+```typescript
+// ❌ PROIBIDO: Código sem testes
+export const createUser = async (data: any) => {
+  return prisma.user.create({ data });
+};
+
+// ✅ CORRETO: Sempre com testes
+// user.service.ts
+export const createUser = async (data: CreateUserDTO) => {
+  // validação, lógica, etc
+};
+
+// user.service.test.ts
+describe("UserService", () => {
+  describe("createUser", () => {
+    it("should create a user successfully", async () => {
+      // teste completo aqui
+    });
+
+    it("should throw error if email already exists", async () => {
+      // teste de erro aqui
+    });
+  });
+});
+```
+
+**FLUXO OBRIGATÓRIO:**
+
+1. Escrever o teste PRIMEIRO (TDD)
+2. Implementar a funcionalidade
+3. Garantir que TODOS os testes passam
+4. Só então fazer integração com frontend
+
+### 2. NUNCA EXECUTE BUILD - SEMPRE DEV MODE
+
+```bash
+# ❌ PROIBIDO
+npm run build
+npm start
+
+# ✅ CORRETO - Sempre em desenvolvimento
+npm run dev
+```
+
+### 3. SEGURANÇA DE DADOS
+
+```typescript
+// ❌ PROIBIDO: Expor dados sensíveis
+return {
+  id: user.id,
+  email: user.email,
+  password: user.password, // NUNCA!
+  passwordResetToken: user.passwordResetToken, // NUNCA!
+};
+
+// ✅ CORRETO: DTOs para respostas
+export class UserResponseDTO {
+  id: string;
+  email: string;
+  name: string;
+  type: UserType;
+  avatar?: string;
+  // Sem campos sensíveis!
+}
+
+// SEMPRE use excludePassword helper
+const excludePassword = (user: User) => {
+  const { password, passwordResetToken, ...userWithoutPassword } = user;
+  return userWithoutPassword;
+};
+```
+
+### 4. AUTENTICAÇÃO E AUTORIZAÇÃO
+
+```typescript
+// JWT com access token (15min) e refresh token (7 dias)
+export const generateTokens = (userId: string, userType: UserType) => {
+  const accessToken = jwt.sign({ userId, userType }, process.env.JWT_SECRET!, {
+    expiresIn: "15m",
+  });
+
+  const refreshToken = jwt.sign({ userId }, process.env.JWT_REFRESH_SECRET!, {
+    expiresIn: "7d",
+  });
+
+  return { accessToken, refreshToken };
+};
+
+// Middleware de autenticação
+export const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader?.split(" ")[1]; // Bearer TOKEN
+
+  if (!token) {
+    return res
+      .status(401)
+      .json({ error: "NO_TOKEN", message: "Token não fornecido" });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!);
+    req.user = decoded;
+    next();
+  } catch (err) {
+    return res
+      .status(401)
+      .json({ error: "INVALID_TOKEN", message: "Token inválido" });
+  }
+};
+
+// Middleware de autorização por role
+export const authorize = (...roles: UserType[]) => {
+  return (req, res, next) => {
+    if (!roles.includes(req.user.userType)) {
+      return res.status(403).json({
+        error: "FORBIDDEN",
+        message: "Não tem permissão para aceder a este recurso",
+      });
+    }
+    next();
+  };
+};
+```
+
+### 5. VALIDAÇÃO DE INPUTS
+
+```typescript
+// SEMPRE use express-validator ou Zod para validação
+import { body, validationResult } from "express-validator";
+
+export const registerValidation = [
+  body("email").isEmail().withMessage("Email inválido").normalizeEmail(),
+  body("password")
+    .isLength({ min: 8 })
+    .withMessage("Password deve ter no mínimo 8 caracteres")
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+    .withMessage("Password deve conter maiúsculas, minúsculas e números"),
+  body("name")
+    .trim()
+    .isLength({ min: 2 })
+    .withMessage("Nome deve ter no mínimo 2 caracteres"),
+];
+
+// Controller
+export const register = async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+  // continuar com lógica...
+};
+```
+
+### 6. TRATAMENTO DE ERROS CONSISTENTE
+
+```typescript
+// Criar classe de erro personalizada
+export class AppError extends Error {
+  statusCode: number;
+  errorCode: string;
+  details?: any;
+
+  constructor(
+    message: string,
+    statusCode: number,
+    errorCode: string,
+    details?: any
+  ) {
+    super(message);
+    this.statusCode = statusCode;
+    this.errorCode = errorCode;
+    this.details = details;
+  }
+}
+
+// Middleware global de erro
+export const errorHandler = (err: Error, req, res, next) => {
+  if (err instanceof AppError) {
+    return res.status(err.statusCode).json({
+      error: err.errorCode,
+      message: err.message,
+      details: err.details,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  // Log de erro não tratado
+  logger.error("Unhandled error:", err);
+
+  return res.status(500).json({
+    error: "INTERNAL_SERVER_ERROR",
+    message: "Ocorreu um erro interno. Tente novamente mais tarde.",
+    timestamp: new Date().toISOString(),
+  });
+};
+
+// Uso
+throw new AppError("Email já existe", 409, "EMAIL_EXISTS");
+```
+
+---
+
+## 📚 CONSULTAR SEMPRE A DOCUMENTAÇÃO
+
+### Rotas da API
+
+**OBRIGATÓRIO**: Antes de implementar qualquer endpoint, consultar `docs/API.md` para:
+
+- Estrutura exata da requisição
+- Estrutura exata da resposta
+- Códigos HTTP esperados
+- Mensagens de erro padronizadas
+- Exemplos de payloads
+
+### Fluxos de Utilizador
+
+**OBRIGATÓRIO**: Consultar `docs/FLOWS.md` para entender:
+
+- Sequência de ações do utilizador
+- Estados de transição
+- Regras de negócio
+- Integrações entre módulos
+
+### Componentes Frontend
+
+**RECOMENDADO**: Consultar `docs/COMPONENTS.md` e `docs/README.md` para:
+
+- Entender o contexto da aplicação
+- Ver quais dados o frontend espera
+- Garantir compatibilidade de estruturas
+
+---
+
+## 🔐 SEGURANÇA - BEST PRACTICES
+
+### Passwords
+
+```typescript
+import bcrypt from "bcrypt";
+
+// Hashing (cost factor 12)
+export const hashPassword = async (password: string): Promise<string> => {
+  return await bcrypt.hash(password, 12);
+};
+
+// Verificação
+export const comparePassword = async (
+  password: string,
+  hash: string
+): Promise<boolean> => {
+  return await bcrypt.compare(password, hash);
+};
+```
+
+### Rate Limiting
+
+```typescript
+import rateLimit from "express-rate-limit";
+
+// Limite geral
+export const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 100, // 100 requests por IP
+  message: "Demasiadas requisições. Tente novamente mais tarde.",
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Limite para autenticação (mais restrito)
+export const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5, // 5 tentativas de login
+  message: "Demasiadas tentativas de login. Tente novamente em 15 minutos.",
+  skipSuccessfulRequests: true, // Não conta requisições bem-sucedidas
+});
+```
+
+### CORS Configuration
+
+```typescript
+import cors from "cors";
+
+const allowedOrigins = [
+  "https://albiemprego.pt",
+  "https://www.albiemprego.pt",
+  "https://app.albiemprego.pt",
+  ...(process.env.NODE_ENV === "development"
+    ? [
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:5173",
+      ]
+    : []),
+];
+
+export const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "Accept-Language",
+    "X-Requested-With",
+  ],
+  maxAge: 86400, // 24 horas
+};
+
+app.use(cors(corsOptions));
+```
+
+### Helmet (Security Headers)
+
+```typescript
+import helmet from "helmet";
+
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'"],
+        imgSrc: ["'self'", "data:", "https:"],
+      },
+    },
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true,
+    },
+  })
+);
+```
+
+---
+
+## 🗄️ PRISMA SCHEMA - ESTRUTURA DO BANCO
+
+```prisma
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserType {
+  CANDIDATO
+  EMPRESA
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  PENDING
+  SUSPENDED
+}
+
+model User {
+  id        String      @id @default(uuid())
+  email     String      @unique
+  password  String
+  name      String
+  phone     String?
+  location  String?
+  avatar    String?
+  bio       String?
+  type      UserType
+  status    UserStatus  @default(PENDING)
+
+  // Tokens
+  passwordResetToken   String?   @unique
+  passwordResetExpires DateTime?
+  emailVerificationToken String? @unique
+  emailVerified        Boolean   @default(false)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  lastLoginAt DateTime?
+
+  // Relations
+  candidate  Candidate?
+  company    Company?
+
+  @@map("users")
+}
+
+model Candidate {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  cvUrl              String?
+  skills             String[]
+  experienceYears    Int?
+  currentPosition    String?
+  profileCompleteness Int @default(0)
+
+  // Relations
+  experiences  Experience[]
+  educations   Education[]
+  languages    Language[]
+  applications Application[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("candidates")
+}
+
+model Company {
+  id          String      @id @default(uuid())
+  userId      String      @unique
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name        String
+  nif         String      @unique
+  website     String?
+  sector      String?
+  employees   String?
+  description String?
+  logo        String?
+
+  // Approval
+  approvedAt  DateTime?
+  rejectedAt  DateTime?
+  rejectionReason String?
+
+  // Relations
+  jobs        Job[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("companies")
+}
+
+model Experience {
+  id          String    @id @default(uuid())
+  candidateId String
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  company     String
+  position    String
+  startDate   DateTime
+  endDate     DateTime?
+  current     Boolean   @default(false)
+  description String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("experiences")
+}
+
+model Education {
+  id          String    @id @default(uuid())
+  candidateId String
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  institution String
+  degree      String
+  field       String
+  startDate   DateTime
+  endDate     DateTime?
+  current     Boolean   @default(false)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("educations")
+}
+
+model Language {
+  id          String    @id @default(uuid())
+  candidateId String
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  language    String
+  level       LanguageLevel
+
+  @@unique([candidateId, language])
+  @@map("languages")
+}
+
+enum LanguageLevel {
+  BASIC
+  INTERMEDIATE
+  ADVANCED
+  NATIVE
+}
+
+enum JobType {
+  FULL_TIME
+  PART_TIME
+  TEMPORARY
+  INTERNSHIP
+  FREELANCE
+}
+
+enum WorkMode {
+  PRESENCIAL
+  REMOTO
+  HIBRIDO
+}
+
+enum JobStatus {
+  DRAFT
+  PENDING
+  ACTIVE
+  PAUSED
+  CLOSED
+  REJECTED
+}
+
+model Job {
+  id          String    @id @default(uuid())
+  companyId   String
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String
+  requirements String[]
+  responsibilities String[]
+  benefits    String[]
+
+  location    String
+  type        JobType
+  workMode    WorkMode
+
+  // Salary (optional)
+  salaryMin   Decimal?  @db.Decimal(10, 2)
+  salaryMax   Decimal?  @db.Decimal(10, 2)
+  salaryCurrency String @default("EUR")
+  salaryPeriod String @default("month")
+  showSalary  Boolean @default(false)
+
+  sector      String
+  experienceLevel String?
+
+  status      JobStatus @default(DRAFT)
+
+  applicationDeadline DateTime?
+
+  // Metrics
+  viewsCount  Int @default(0)
+
+  // Approval
+  approvedAt  DateTime?
+  publishedAt DateTime?
+  rejectedAt  DateTime?
+  rejectionReason String?
+
+  // Relations
+  applications Application[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("jobs")
+}
+
+enum ApplicationStatus {
+  NEW
+  VIEWED
+  IN_REVIEW
+  INTERVIEW
+  REJECTED
+  ACCEPTED
+}
+
+model Application {
+  id          String    @id @default(uuid())
+  jobId       String
+  job         Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  candidateId String
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  coverLetter String?
+  status      ApplicationStatus @default(NEW)
+
+  // Timeline
+  timeline    Json      // Array de { status, date, note }
+
+  // Internal notes (empresa)
+  notes       String?
+
+  appliedAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([jobId, candidateId])
+  @@map("applications")
+}
+
+model Notification {
+  id          String    @id @default(uuid())
+  userId      String
+
+  type        NotificationType
+  title       String
+  message     String
+  read        Boolean   @default(false)
+
+  actionUrl   String?
+  actionLabel String?
+
+  createdAt   DateTime  @default(now())
+
+  @@index([userId, read])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ANNOUNCEMENT
+  PROMOTION
+  SYSTEM
+  MAINTENANCE
+}
+
+model Conversation {
+  id            String    @id @default(uuid())
+  participants  String[]  // Array de user IDs
+
+  // Context opcional
+  contextType   String?   // "application", "job", "support"
+  contextId     String?
+  contextTitle  String?
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  messages      Message[]
+
+  @@map("conversations")
+}
+
+model Message {
+  id              String    @id @default(uuid())
+  conversationId  String
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  senderId        String
+  content         String
+
+  attachments     Json?     // Array de attachments
+
+  status          MessageStatus @default(SENT)
+
+  isSystem        Boolean   @default(false)
+  systemType      String?
+
+  sentAt          DateTime  @default(now())
+  readAt          DateTime?
+
+  @@index([conversationId])
+  @@map("messages")
+}
+
+enum MessageStatus {
+  SENDING
+  SENT
+  DELIVERED
+  READ
+}
+
+model MaintenanceMode {
+  id                String    @id @default(uuid())
+  enabled           Boolean   @default(false)
+  message           String?
+  estimatedEndTime  DateTime?
+  updatedAt         DateTime  @updatedAt
+
+  @@map("maintenance_mode")
+}
+```
+
+---
+
+## 🧪 TESTING - EXEMPLOS COMPLETOS
+
+### Configuração do Jest
+
+```typescript
+// jest.config.js
+module.exports = {
+  preset: "ts-jest",
+  testEnvironment: "node",
+  roots: ["<rootDir>/src", "<rootDir>/tests"],
+  testMatch: ["**/__tests__/**/*.ts", "**/?(*.)+(spec|test).ts"],
+  moduleNameMapper: {
+    "^@/(.*)$": "<rootDir>/src/$1",
+  },
+  collectCoverageFrom: ["src/**/*.ts", "!src/**/*.d.ts", "!src/server.ts"],
+  coverageThreshold: {
+    global: {
+      branches: 70,
+      functions: 70,
+      lines: 70,
+      statements: 70,
+    },
+  },
+  setupFilesAfterEnv: ["<rootDir>/tests/setup.ts"],
+};
+```
+
+### Setup de Testes
+
+```typescript
+// tests/setup.ts
+import { PrismaClient } from "@prisma/client";
+
+export const prisma = new PrismaClient();
+
+beforeAll(async () => {
+  // Conectar ao banco de testes
+  await prisma.$connect();
+});
+
+afterEach(async () => {
+  // Limpar dados após cada teste
+  const deleteUsers = prisma.user.deleteMany();
+  const deleteJobs = prisma.job.deleteMany();
+  const deleteApplications = prisma.application.deleteMany();
+
+  await prisma.$transaction([deleteApplications, deleteJobs, deleteUsers]);
+});
+
+afterAll(async () => {
+  await prisma.$disconnect();
+});
+```
+
+### Teste Unitário - Service
+
+```typescript
+// tests/unit/user.service.test.ts
+import { UserService } from "@/services/user.service";
+import { prisma } from "../setup";
+import { faker } from "@faker-js/faker";
+
+describe("UserService", () => {
+  describe("createCandidate", () => {
+    it("should create a candidate successfully", async () => {
+      const userData = {
+        email: faker.internet.email(),
+        password: "Password123!",
+        name: faker.person.fullName(),
+        type: "CANDIDATO" as const,
+      };
+
+      const user = await UserService.createUser(userData);
+
+      expect(user).toBeDefined();
+      expect(user.email).toBe(userData.email);
+      expect(user.type).toBe("CANDIDATO");
+      expect(user.password).not.toBe(userData.password); // Password deve estar hasheada
+    });
+
+    it("should throw error if email already exists", async () => {
+      const userData = {
+        email: "duplicate@test.com",
+        password: "Password123!",
+        name: "Test User",
+        type: "CANDIDATO" as const,
+      };
+
+      await UserService.createUser(userData);
+
+      await expect(UserService.createUser(userData)).rejects.toThrow(
+        "Email já existe"
+      );
+    });
+
+    it("should hash password before saving", async () => {
+      const userData = {
+        email: faker.internet.email(),
+        password: "Password123!",
+        name: faker.person.fullName(),
+        type: "CANDIDATO" as const,
+      };
+
+      const user = await UserService.createUser(userData);
+      const userFromDb = await prisma.user.findUnique({
+        where: { id: user.id },
+      });
+
+      expect(userFromDb?.password).not.toBe(userData.password);
+      expect(userFromDb?.password.length).toBeGreaterThan(50); // bcrypt hash
+    });
+  });
+});
+```
+
+### Teste de Integração - API
+
+```typescript
+// tests/integration/auth.test.ts
+import request from "supertest";
+import app from "@/app";
+import { prisma } from "../setup";
+import { faker } from "@faker-js/faker";
+
+describe("Auth API", () => {
+  describe("POST /api/v1/auth/register", () => {
+    it("should register a new candidate", async () => {
+      const userData = {
+        email: faker.internet.email(),
+        password: "Password123!",
+        name: faker.person.fullName(),
+        type: "candidato",
+      };
+
+      const response = await request(app)
+        .post("/api/v1/auth/register")
+        .send(userData)
+        .expect(201);
+
+      expect(response.body).toHaveProperty("user");
+      expect(response.body).toHaveProperty("accessToken");
+      expect(response.body).toHaveProperty("refreshToken");
+      expect(response.body.user.email).toBe(userData.email);
+      expect(response.body.user).not.toHaveProperty("password");
+    });
+
+    it("should return 409 if email already exists", async () => {
+      const userData = {
+        email: "duplicate@test.com",
+        password: "Password123!",
+        name: "Test User",
+        type: "candidato",
+      };
+
+      // Primeiro registo
+      await request(app)
+        .post("/api/v1/auth/register")
+        .send(userData)
+        .expect(201);
+
+      // Segundo registo (duplicado)
+      const response = await request(app)
+        .post("/api/v1/auth/register")
+        .send(userData)
+        .expect(409);
+
+      expect(response.body.error).toBe("EMAIL_EXISTS");
+    });
+
+    it("should validate email format", async () => {
+      const userData = {
+        email: "invalid-email",
+        password: "Password123!",
+        name: "Test User",
+        type: "candidato",
+      };
+
+      const response = await request(app)
+        .post("/api/v1/auth/register")
+        .send(userData)
+        .expect(400);
+
+      expect(response.body.errors).toBeDefined();
+    });
+  });
+
+  describe("POST /api/v1/auth/login", () => {
+    it("should login successfully with valid credentials", async () => {
+      // Criar utilizador
+      const password = "Password123!";
+      const user = await prisma.user.create({
+        data: {
+          email: faker.internet.email(),
+          password: await hashPassword(password),
+          name: faker.person.fullName(),
+          type: "CANDIDATO",
+          status: "ACTIVE",
+        },
+      });
+
+      const response = await request(app)
+        .post("/api/v1/auth/login")
+        .send({
+          email: user.email,
+          password: password,
+        })
+        .expect(200);
+
+      expect(response.body).toHaveProperty("accessToken");
+      expect(response.body).toHaveProperty("refreshToken");
+      expect(response.body.user.id).toBe(user.id);
+    });
+
+    it("should return 401 with invalid credentials", async () => {
+      const response = await request(app)
+        .post("/api/v1/auth/login")
+        .send({
+          email: "nonexistent@test.com",
+          password: "WrongPassword123!",
+        })
+        .expect(401);
+
+      expect(response.body.error).toBe("INVALID_CREDENTIALS");
+    });
+  });
+});
+```
+
+---
+
+## 🚀 PERFORMANCE & ESCALABILIDADE
+
+### 1. Indexação de Base de Dados
+
+```prisma
+// Adicionar índices estratégicos
+model User {
+  // ...
+  @@index([email])
+  @@index([type, status])
+}
+
+model Job {
+  // ...
+  @@index([status, publishedAt])
+  @@index([companyId, status])
+  @@index([location, status])
+}
+
+model Application {
+  // ...
+  @@index([candidateId, status])
+  @@index([jobId, status])
+}
+```
+
+### 2. Cache com Redis
+
+```typescript
+// src/config/redis.ts
+import { createClient } from "redis";
+
+export const redisClient = createClient({
+  url: process.env.REDIS_URL || "redis://localhost:6379",
+});
+
+redisClient.on("error", (err) => console.error("Redis error:", err));
+
+await redisClient.connect();
+
+// Funções helper
+export const cacheGet = async <T>(key: string): Promise<T | null> => {
+  const cached = await redisClient.get(key);
+  return cached ? JSON.parse(cached) : null;
+};
+
+export const cacheSet = async (key: string, value: any, ttl: number = 300) => {
+  await redisClient.setEx(key, ttl, JSON.stringify(value));
+};
+
+export const cacheDelete = async (key: string) => {
+  await redisClient.del(key);
+};
+```
+
+### 3. Uso de Cache em Endpoints
+
+```typescript
+// Exemplo: Cache para listagem de vagas públicas
+export const getJobs = async (req, res) => {
+  const cacheKey = `jobs:${JSON.stringify(req.query)}`;
+
+  // Tentar obter do cache
+  const cached = await cacheGet(cacheKey);
+  if (cached) {
+    return res.json(cached);
+  }
+
+  // Se não tiver cache, buscar do banco
+  const jobs = await JobService.getJobs(req.query);
+
+  // Guardar no cache (5 minutos)
+  await cacheSet(cacheKey, jobs, 300);
+
+  return res.json(jobs);
+};
+
+// Invalidar cache quando dados mudam
+export const createJob = async (req, res) => {
+  const job = await JobService.createJob(req.body);
+
+  // Invalidar cache de listagem de vagas
+  await redisClient.del("jobs:*"); // Limpar todos os caches de vagas
+
+  return res.status(201).json(job);
+};
+```
+
+### 4. Paginação Eficiente
+
+```typescript
+// Sempre usar cursor-based pagination para grandes datasets
+export const getJobsWithCursor = async (
+  cursor?: string,
+  limit: number = 20
+) => {
+  return await prisma.job.findMany({
+    take: limit,
+    skip: cursor ? 1 : 0,
+    cursor: cursor ? { id: cursor } : undefined,
+    where: { status: "ACTIVE" },
+    orderBy: { createdAt: "desc" },
+    include: {
+      company: {
+        select: {
+          name: true,
+          logo: true,
+        },
+      },
+    },
+  });
+};
+```
+
+### 5. Database Connection Pooling
+
+```typescript
+// src/config/database.ts
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient({
+  log:
+    process.env.NODE_ENV === "development"
+      ? ["query", "error", "warn"]
+      : ["error"],
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL,
+    },
+  },
+});
+
+// Connection pooling (via connection string)
+// postgres://user:pass@host:5432/db?connection_limit=20&pool_timeout=30
+
+export default prisma;
+```
+
+### 6. Queries Otimizadas
+
+```typescript
+// ❌ EVITAR: N+1 queries
+const jobs = await prisma.job.findMany();
+for (const job of jobs) {
+  job.company = await prisma.company.findUnique({
+    where: { id: job.companyId },
+  }); // RUIM! 1 + N queries
+}
+
+// ✅ CORRETO: Usar include/select
+const jobs = await prisma.job.findMany({
+  include: {
+    company: {
+      select: {
+        id: true,
+        name: true,
+        logo: true,
+      },
+    },
+  },
+}); // 1 query apenas!
+```
+
+---
+
+## 📧 EMAIL - TEMPLATES E ENVIO
+
+### Configuração Nodemailer
+
+```typescript
+// src/config/email.ts
+import nodemailer from "nodemailer";
+
+export const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: parseInt(process.env.SMTP_PORT || "587"),
+  secure: process.env.SMTP_SECURE === "true",
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASSWORD,
+  },
+});
+
+// Verificar conexão
+transporter.verify((error) => {
+  if (error) {
+    console.error("Email config error:", error);
+  } else {
+    console.log("Email server ready");
+  }
+});
+```
+
+### Service de Email
+
+```typescript
+// src/services/email.service.ts
+import { transporter } from "@/config/email";
+
+interface SendEmailOptions {
+  to: string;
+  subject: string;
+  html: string;
+  text?: string;
+}
+
+export class EmailService {
+  static async sendEmail({ to, subject, html, text }: SendEmailOptions) {
+    try {
+      const info = await transporter.sendMail({
+        from: `"AlbiEmprego" <${process.env.EMAIL_FROM}>`,
+        to,
+        subject,
+        html,
+        text: text || html.replace(/<[^>]*>/g, ""), // Fallback para texto
+      });
+
+      logger.info("Email sent:", info.messageId);
+      return info;
+    } catch (error) {
+      logger.error("Email send error:", error);
+      throw new AppError("Erro ao enviar email", 500, "EMAIL_SEND_ERROR");
+    }
+  }
+
+  static async sendWelcomeEmail(user: User) {
+    const html = `
+      <h1>Bem-vindo ao AlbiEmprego!</h1>
+      <p>Olá ${user.name},</p>
+      <p>A sua conta foi criada com sucesso.</p>
+      <p>Comece já a explorar oportunidades em Castelo Branco!</p>
+      <a href="${process.env.FRONTEND_URL}">Aceder à Plataforma</a>
+    `;
+
+    await this.sendEmail({
+      to: user.email,
+      subject: "Bem-vindo ao AlbiEmprego!",
+      html,
+    });
+  }
+
+  static async sendPasswordResetEmail(user: User, token: string) {
+    const resetUrl = `${process.env.FRONTEND_URL}/auth/reset-password?token=${token}`;
+
+    const html = `
+      <h1>Redefinir Password</h1>
+      <p>Olá ${user.name},</p>
+      <p>Recebemos um pedido para redefinir a sua password.</p>
+      <p>Clique no link abaixo para criar uma nova password:</p>
+      <a href="${resetUrl}">Redefinir Password</a>
+      <p>Este link expira em 1 hora.</p>
+      <p>Se não solicitou esta alteração, ignore este email.</p>
+    `;
+
+    await this.sendEmail({
+      to: user.email,
+      subject: "Redefinir Password - AlbiEmprego",
+      html,
+    });
+  }
+
+  static async sendApplicationStatusEmail(
+    candidate: User,
+    job: Job,
+    status: ApplicationStatus
+  ) {
+    const statusMessages = {
+      VIEWED: "A sua candidatura foi visualizada",
+      IN_REVIEW: "A sua candidatura está em análise",
+      INTERVIEW: "Foi convidado para entrevista",
+      ACCEPTED: "Parabéns! A sua candidatura foi aceite",
+      REJECTED: "A sua candidatura não foi selecionada",
+    };
+
+    const html = `
+      <h1>${statusMessages[status]}</h1>
+      <p>Olá ${candidate.name},</p>
+      <p>Há uma atualização na sua candidatura para:</p>
+      <h2>${job.title}</h2>
+      <p><strong>Estado atual:</strong> ${statusMessages[status]}</p>
+      <a href="${process.env.FRONTEND_URL}/candidato/candidaturas">
+        Ver Candidaturas
+      </a>
+    `;
+
+    await this.sendEmail({
+      to: candidate.email,
+      subject: `Atualização: ${job.title}`,
+      html,
+    });
+  }
+}
+```
+
+---
+
+## 📊 LOGGING - WINSTON
+
+```typescript
+// src/config/logger.ts
+import winston from "winston";
+
+const { combine, timestamp, printf, colorize, errors } = winston.format;
+
+const logFormat = printf(({ level, message, timestamp, stack }) => {
+  return `${timestamp} [${level}]: ${stack || message}`;
+});
+
+export const logger = winston.createLogger({
+  level: process.env.LOG_LEVEL || "info",
+  format: combine(
+    errors({ stack: true }),
+    timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
+    logFormat
+  ),
+  transports: [
+    new winston.transports.Console({
+      format: combine(colorize(), logFormat),
+    }),
+    new winston.transports.File({
+      filename: "logs/error.log",
+      level: "error",
+    }),
+    new winston.transports.File({
+      filename: "logs/combined.log",
+    }),
+  ],
+});
+
+// Uso
+logger.info("Server started on port 3001");
+logger.error("Database connection failed", { error });
+logger.warn("High memory usage detected");
+```
+
+---
+
+## 🐳 DOCKER COMPOSE
+
+```yaml
+# docker-compose.yml
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:latest
+    container_name: albiemprego_postgres
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-albiemprego}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:latest
+    container_name: albiemprego_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:
+```
+
+---
+
+## 🔄 WEBSOCKETS - MENSAGENS EM TEMPO REAL
+
+```typescript
+// src/config/websocket.ts
+import { Server } from "socket.io";
+import jwt from "jsonwebtoken";
+
+export const initializeWebSocket = (server) => {
+  const io = new Server(server, {
+    cors: {
+      origin: process.env.FRONTEND_URL,
+      credentials: true,
+    },
+  });
+
+  // Middleware de autenticação
+  io.use((socket, next) => {
+    const token = socket.handshake.auth.token;
+
+    if (!token) {
+      return next(new Error("Authentication error"));
+    }
+
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET!);
+      socket.data.userId = decoded.userId;
+      next();
+    } catch (err) {
+      next(new Error("Authentication error"));
+    }
+  });
+
+  io.on("connection", (socket) => {
+    const userId = socket.data.userId;
+
+    // Join room do utilizador
+    socket.join(`user:${userId}`);
+
+    // Notificar presença
+    socket.broadcast.emit("presence", {
+      userId,
+      online: true,
+    });
+
+    // Typing indicator
+    socket.on("typing", (data) => {
+      socket.to(`conversation:${data.conversationId}`).emit("typing", {
+        conversationId: data.conversationId,
+        userId,
+      });
+    });
+
+    // Marcar mensagem como lida
+    socket.on("mark_read", async (data) => {
+      await MessageService.markAsRead(data.messageId, userId);
+
+      socket.to(`conversation:${data.conversationId}`).emit("message_read", {
+        conversationId: data.conversationId,
+        messageId: data.messageId,
+        readBy: userId,
+        readAt: new Date().toISOString(),
+      });
+    });
+
+    socket.on("disconnect", () => {
+      socket.broadcast.emit("presence", {
+        userId,
+        online: false,
+      });
+    });
+  });
+
+  return io;
+};
+
+// Enviar notificação de nova mensagem
+export const notifyNewMessage = (io, conversationId, message) => {
+  io.to(`conversation:${conversationId}`).emit("new_message", {
+    conversationId,
+    message,
+  });
+};
+```
+
+---
+
+## 📝 VARIÁVEIS DE AMBIENTE
+
+```bash
+# .env.example
+
+# Servidor
+NODE_ENV=development
+PORT=3001
+FRONTEND_URL=http://localhost:5173
+
+# Database
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/albiemprego?schema=public
+
+# Redis
+REDIS_URL=redis://localhost:6379
+
+# JWT
+JWT_SECRET=seu_jwt_secret_super_secreto_aqui
+JWT_REFRESH_SECRET=seu_refresh_secret_super_secreto_aqui
+
+# Email (SMTP)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=seu_email@gmail.com
+SMTP_PASSWORD=sua_senha_ou_app_password
+EMAIL_FROM=noreply@albiemprego.pt
+
+# Logging
+LOG_LEVEL=info
+
+# Rate Limiting
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX_REQUESTS=100
+
+# Upload
+MAX_FILE_SIZE=5242880
+ALLOWED_FILE_TYPES=image/jpeg,image/png,application/pdf
+
+# PostgreSQL (para Docker)
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_DB=albiemprego
+```
+
+---
+
+## 📦 PACKAGE.JSON - SCRIPTS
+
+```json
+{
+  "name": "albiemprego-backend",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "echo 'Build disabled in development' && exit 1",
+    "test": "jest --coverage",
+    "test:watch": "jest --watch",
+    "test:integration": "jest --testPathPattern=integration",
+    "test:unit": "jest --testPathPattern=unit",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio",
+    "prisma:seed": "tsx prisma/seed.ts",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "lint": "eslint . --ext .ts",
+    "format": "prettier --write \"src/**/*.ts\""
+  }
+}
+```
+
+---
+
+## 🎯 CHECKLIST DE IMPLEMENTAÇÃO
+
+Antes de considerar uma funcionalidade completa:
+
+### ✅ Código
+
+- [ ] Schema Prisma atualizado
+- [ ] Migrations criadas e testadas
+- [ ] DTOs definidos (request & response)
+- [ ] Validações implementadas
+- [ ] Service layer implementado
+- [ ] Controller implementado
+- [ ] Rotas registadas
+- [ ] Middlewares aplicados (auth, validation)
+
+### ✅ Segurança
+
+- [ ] Autenticação verificada
+- [ ] Autorização por role implementada
+- [ ] Inputs validados
+- [ ] Rate limiting aplicado
+- [ ] Dados sensíveis nunca expostos
+- [ ] Passwords hasheadas
+- [ ] Tokens com expiração
+
+### ✅ Testes
+
+- [ ] Testes unitários (services) - **OBRIGATÓRIO**
+- [ ] Testes de integração (API) - **OBRIGATÓRIO**
+- [ ] Todos os testes passam
+- [ ] Coverage > 70%
+- [ ] Edge cases testados
+- [ ] Erros testados
+
+### ✅ Performance
+
+- [ ] Queries otimizadas (sem N+1)
+- [ ] Índices de BD criados
+- [ ] Cache implementado onde aplicável
+- [ ] Paginação implementada
+
+### ✅ Documentação
+
+- [ ] Endpoints documentados
+- [ ] Exemplos de request/response
+- [ ] Erros possíveis documentados
+- [ ] README atualizado
+
+---
+
+## 🚨 ERROS COMUNS A EVITAR
+
+### 1. ❌ Nunca retornar passwords
+
+```typescript
+// ERRADO
+return user;
+
+// CORRETO
+const { password, ...userWithoutPassword } = user;
+return userWithoutPassword;
+```
+
+### 2. ❌ Não validar inputs
+
+```typescript
+// ERRADO
+const user = await UserService.create(req.body);
+
+// CORRETO
+const errors = validationResult(req);
+if (!errors.isEmpty()) {
+  return res.status(400).json({ errors: errors.array() });
+}
+const user = await UserService.create(req.body);
+```
+
+### 3. ❌ Não fazer tratamento de erros
+
+```typescript
+// ERRADO
+const job = await prisma.job.findUnique({ where: { id } });
+return res.json(job); // E se job for null?
+
+// CORRETO
+const job = await prisma.job.findUnique({ where: { id } });
+if (!job) {
+  throw new AppError("Vaga não encontrada", 404, "JOB_NOT_FOUND");
+}
+return res.json(job);
+```
+
+### 4. ❌ Queries não otimizadas
+
+```typescript
+// ERRADO (N+1)
+const jobs = await prisma.job.findMany();
+for (const job of jobs) {
+  job.company = await prisma.company.findUnique({
+    where: { id: job.companyId },
+  });
+}
+
+// CORRETO
+const jobs = await prisma.job.findMany({
+  include: { company: true },
+});
+```
+
+### 5. ❌ Não usar transactions
+
+```typescript
+// ERRADO
+await prisma.user.create({ data: userData });
+await prisma.candidate.create({ data: candidateData });
+// Se o segundo falhar, o primeiro fica!
+
+// CORRETO
+await prisma.$transaction([
+  prisma.user.create({ data: userData }),
+  prisma.candidate.create({ data: candidateData }),
+]);
+```
+
+---
+
+## 🎓 QUANDO CONSULTAR DOCUMENTAÇÃO
+
+### Sempre consultar docs/API.md para:
+
+- Estrutura exata de requests/responses
+- Status codes esperados
+- Mensagens de erro padronizadas
+- Nomes de campos
+- Tipos de dados
+
+### Sempre consultar docs/FLOWS.md para:
+
+- Sequência de operações
+- Estados de transição
+- Regras de negócio
+- Validações necessárias
+
+### Consultar docs/COMPONENTS.md quando:
+
+- Precisar entender o contexto frontend
+- Verificar estruturas de dados esperadas
+- Entender fluxos de utilizador
+
+---
+
+## 🏁 COMANDO FINAL
+
+**NUNCA COMEÇE A CODIFICAR SEM:**
+
+1. ✅ Ler a documentação relevante (API.md, FLOWS.md)
+2. ✅ Escrever os testes PRIMEIRO (TDD)
+3. ✅ Garantir que todos os testes passam
+4. ✅ Verificar segurança e validações
+
+**LEMBRE-SE:**
+
+- 🚫 **NUNCA** `npm run build` - sempre `npm run dev`
+- 🧪 **TESTES SÃO OBRIGATÓRIOS** - sem testes, sem merge
+- 🔐 **SEGURANÇA PRIMEIRO** - validar inputs, proteger dados sensíveis
+- 📊 **PERFORMANCE IMPORTA** - otimizar queries, usar cache, indexar
+- 📝 **DOCUMENTAR TUDO** - código legível é código mantível
+
+---
+
+**Você está pronto para construir o backend do AlbiEmprego!** 🚀
+
+Consulte sempre a documentação, escreva testes, e construa com segurança e escalabilidade em mente.
