@@ -567,6 +567,34 @@ export const jobApi = {
     const response = await api.patch(`/jobs/${jobId}/close`);
     return response.data;
   },
+
+  async reactivateJob(jobId: string): Promise<Job> {
+    const response = await api.patch(`/jobs/${jobId}/reactivate`);
+    return response.data;
+  },
+
+  async getMyJobs(status?: string): Promise<Job[]> {
+    const params = status ? `?status=${status}` : '';
+    const response = await api.get(`/jobs/my-jobs${params}`);
+    return response.data;
+  },
+
+  async getMyJobsStats(): Promise<{
+    total: number;
+    byStatus: {
+      draft: number;
+      active: number;
+      paused: number;
+      closed: number;
+      pending: number;
+      rejected: number;
+    };
+    totalApplications: number;
+    totalViews: number;
+  }> {
+    const response = await api.get('/jobs/my-jobs/stats');
+    return response.data;
+  },
 };
 
 // Health check

@@ -398,6 +398,118 @@ export class JobService {
   }
 
   /**
+   * Reativar vaga pausada (voltar para ACTIVE)
+   */
+  static async reactivateJob(userId: string, jobId: string) {
+    const job = await this.verifyJobOwner(userId, jobId);
+
+    if (job.status !== "PAUSED") {
+      throw new BadRequestError("Apenas vagas pausadas podem ser reativadas");
+    }
+
+    const updated = await prisma.job.update({
+      where: { id: jobId },
+      data: {
+        status: "ACTIVE",
+      },
+    });
+
+    logger.info(`Vaga reativada: ${updated.title} (ID: ${jobId})`);
+    return updated;
+  }
+
+  /**
+   * Listar vagas da empresa logada (todas - drafts, active, paused, closed)
+   */
+  static async getMyJobs(userId: string, status?: JobStatus) {
+    const company = await this.verifyCompany(userId);
+
+    const where: Prisma.JobWhereInput = {
+      companyId: company.id,
+    };
+
+    // Filtrar por status se fornecido
+    if (status) {
+      where.status = status;
+    }
+
+    const jobs = await prisma.job.findMany({
+      where,
+      include: {
+        company: {
+          select: {
+            id: true,
+            name: true,
+            logo: true,
+          },
+        },
+        _count: {
+          select: {
+            applications: true,
+          },
+        },
+      },
+      orderBy: [
+        { status: "asc" }, // DRAFT primeiro, depois ACTIVE, PAUSED, CLOSED
+        { createdAt: "desc" },
+      ],
+    });
+
+    logger.info(`Vagas da empresa ${company.name}: ${jobs.length} (Status: ${status || "TODAS"})`);
+    return jobs;
+  }
+
+  /**
+   * Obter estatísticas das vagas da empresa
+   */
+  static async getMyJobsStats(userId: string) {
+    const company = await this.verifyCompany(userId);
+
+    const [total, drafts, active, paused, closed, pending, rejected] = await Promise.all([
+      prisma.job.count({ where: { companyId: company.id } }),
+      prisma.job.count({ where: { companyId: company.id, status: "DRAFT" } }),
+      prisma.job.count({ where: { companyId: company.id, status: "ACTIVE" } }),
+      prisma.job.count({ where: { companyId: company.id, status: "PAUSED" } }),
+      prisma.job.count({ where: { companyId: company.id, status: "CLOSED" } }),
+      prisma.job.count({ where: { companyId: company.id, status: "PENDING" } }),
+      prisma.job.count({ where: { companyId: company.id, status: "REJECTED" } }),
+    ]);
+
+    // Total de candidaturas
+    const totalApplications = await prisma.application.count({
+      where: {
+        job: {
+          companyId: company.id,
+        },
+      },
+    });
+
+    // Visualizações totais
+    const viewsResult = await prisma.job.aggregate({
+      where: { companyId: company.id },
+      _sum: {
+        viewsCount: true,
+      },
+    });
+
+    logger.info(`Estatísticas obtidas para empresa: ${company.name}`);
+
+    return {
+      total,
+      byStatus: {
+        draft: drafts,
+        active,
+        paused,
+        closed,
+        pending,
+        rejected,
+      },
+      totalApplications,
+      totalViews: viewsResult._sum.viewsCount || 0,
+    };
+  }
+
+  /**
    * Remover vaga (soft delete - apenas se não tiver candidaturas)
    */
   static async deleteJob(userId: string, jobId: string) {

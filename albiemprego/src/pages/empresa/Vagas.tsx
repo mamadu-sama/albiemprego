@@ -44,14 +44,19 @@ export default function Vagas() {
   const [activeTab, setActiveTab] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Buscar vagas da empresa
-  const { data: jobsData, isLoading, isError } = useQuery({
-    queryKey: ["companyJobs", user?.company?.id],
-    queryFn: () => jobApi.listJobs({ 
-      companyId: user?.company?.id,
-      status: activeTab === "all" ? undefined : activeTab.toUpperCase() as any,
-      limit: 100,
-    }),
+  // Buscar vagas da empresa (usando endpoint dedicado)
+  const { data: jobs, isLoading, isError } = useQuery({
+    queryKey: ["myJobs", activeTab],
+    queryFn: () => jobApi.getMyJobs(
+      activeTab === "all" ? undefined : activeTab.toUpperCase()
+    ),
+    enabled: !!user?.company?.id,
+  });
+
+  // Buscar estatísticas
+  const { data: stats } = useQuery({
+    queryKey: ["myJobsStats"],
+    queryFn: () => jobApi.getMyJobsStats(),
     enabled: !!user?.company?.id,
   });
 
@@ -60,7 +65,8 @@ export default function Vagas() {
     mutationFn: (jobId: string) => jobApi.pauseJob(jobId),
     onSuccess: () => {
       toast({ title: "Sucesso", description: "Vaga pausada!" });
-      queryClient.invalidateQueries({ queryKey: ["companyJobs"] });
+      queryClient.invalidateQueries({ queryKey: ["myJobs"] });
+      queryClient.invalidateQueries({ queryKey: ["myJobsStats"] });
     },
     onError: (error: any) => {
       toast({
@@ -75,7 +81,8 @@ export default function Vagas() {
     mutationFn: (jobId: string) => jobApi.publishJob(jobId),
     onSuccess: () => {
       toast({ title: "Sucesso", description: "Vaga publicada!" });
-      queryClient.invalidateQueries({ queryKey: ["companyJobs"] });
+      queryClient.invalidateQueries({ queryKey: ["myJobs"] });
+      queryClient.invalidateQueries({ queryKey: ["myJobsStats"] });
     },
     onError: (error: any) => {
       toast({
@@ -90,7 +97,8 @@ export default function Vagas() {
     mutationFn: (jobId: string) => jobApi.closeJob(jobId),
     onSuccess: () => {
       toast({ title: "Sucesso", description: "Vaga fechada!" });
-      queryClient.invalidateQueries({ queryKey: ["companyJobs"] });
+      queryClient.invalidateQueries({ queryKey: ["myJobs"] });
+      queryClient.invalidateQueries({ queryKey: ["myJobsStats"] });
     },
     onError: (error: any) => {
       toast({
@@ -101,11 +109,28 @@ export default function Vagas() {
     },
   });
 
+  const reactivateJobMutation = useMutation({
+    mutationFn: (jobId: string) => jobApi.reactivateJob(jobId),
+    onSuccess: () => {
+      toast({ title: "Sucesso", description: "Vaga reativada!" });
+      queryClient.invalidateQueries({ queryKey: ["myJobs"] });
+      queryClient.invalidateQueries({ queryKey: ["myJobsStats"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: error.response?.data?.message || "Falha ao reativar vaga",
+        variant: "destructive",
+      });
+    },
+  });
+
   const deleteJobMutation = useMutation({
     mutationFn: (jobId: string) => jobApi.deleteJob(jobId),
     onSuccess: () => {
       toast({ title: "Sucesso", description: "Vaga removida!" });
-      queryClient.invalidateQueries({ queryKey: ["companyJobs"] });
+      queryClient.invalidateQueries({ queryKey: ["myJobs"] });
+      queryClient.invalidateQueries({ queryKey: ["myJobsStats"] });
     },
     onError: (error: any) => {
       toast({
@@ -116,18 +141,11 @@ export default function Vagas() {
     },
   });
 
-  // Filtrar vagas por busca e tab
-  const filteredJobs = jobsData?.jobs.filter((job: Job) => {
+  // Filtrar vagas apenas por busca (backend já filtra por status)
+  const filteredJobs = jobs?.filter((job: Job) => {
     const matchesSearch = !searchQuery || 
       job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       job.location.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    if (activeTab === "all") return matchesSearch;
-    if (activeTab === "active") return matchesSearch && job.status === "ACTIVE";
-    if (activeTab === "paused") return matchesSearch && job.status === "PAUSED";
-    if (activeTab === "draft") return matchesSearch && job.status === "DRAFT";
-    if (activeTab === "closed") return matchesSearch && job.status === "CLOSED";
-    
     return matchesSearch;
   }) || [];
 
@@ -200,14 +218,14 @@ export default function Vagas() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             <Card>
               <CardContent className="p-6">
-                <div className="text-2xl font-bold">{filteredJobs.filter((j: Job) => j.status === "ACTIVE").length}</div>
+                <div className="text-2xl font-bold">{stats?.byStatus.active || 0}</div>
                 <div className="text-sm text-muted-foreground">Vagas Ativas</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-6">
                 <div className="text-2xl font-bold">
-                  {filteredJobs.reduce((sum: number, j: Job) => sum + (j._count?.applications || 0), 0)}
+                  {stats?.totalApplications || 0}
                 </div>
                 <div className="text-sm text-muted-foreground">Total Candidaturas</div>
               </CardContent>
@@ -215,14 +233,14 @@ export default function Vagas() {
             <Card>
               <CardContent className="p-6">
                 <div className="text-2xl font-bold">
-                  {filteredJobs.reduce((sum: number, j: Job) => sum + j.viewsCount, 0)}
+                  {stats?.totalViews || 0}
                 </div>
                 <div className="text-sm text-muted-foreground">Total Visualizações</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-6">
-                <div className="text-2xl font-bold">{filteredJobs.filter((j: Job) => j.status === "DRAFT").length}</div>
+                <div className="text-2xl font-bold">{stats?.byStatus.draft || 0}</div>
                 <div className="text-sm text-muted-foreground">Rascunhos</div>
               </CardContent>
             </Card>
@@ -364,7 +382,7 @@ export default function Vagas() {
                           )}
 
                           {job.status === "PAUSED" && (
-                            <DropdownMenuItem onClick={() => publishJobMutation.mutate(job.id)}>
+                            <DropdownMenuItem onClick={() => reactivateJobMutation.mutate(job.id)}>
                               <Play className="h-4 w-4 mr-2" />
                               Reativar
                             </DropdownMenuItem>

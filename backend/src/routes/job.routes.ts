@@ -12,6 +12,26 @@ import {
 const router = Router();
 
 /**
+ * Rotas protegidas - Requerem autenticação como EMPRESA
+ * IMPORTANTE: Estas rotas devem vir ANTES das rotas públicas
+ * para evitar conflito com rotas parametrizadas (:id)
+ */
+
+/**
+ * GET /jobs/my-jobs/stats
+ * Estatísticas das vagas da empresa (contadores por status, candidaturas, visualizações)
+ * DEVE vir antes de /my-jobs para evitar conflito
+ */
+router.get("/my-jobs/stats", authenticateToken, authorize("EMPRESA"), JobController.getMyJobsStats);
+
+/**
+ * GET /jobs/my-jobs
+ * Listar vagas da empresa logada (com filtro opcional por status)
+ * Query params: status (opcional) = DRAFT | ACTIVE | PAUSED | CLOSED | PENDING | REJECTED
+ */
+router.get("/my-jobs", authenticateToken, authorize("EMPRESA"), JobController.getMyJobs);
+
+/**
  * Rotas públicas (sem autenticação obrigatória)
  */
 
@@ -29,7 +49,7 @@ router.get("/", listJobsValidation, JobController.listJobs);
 router.get("/:id", optionalAuth, getJobByIdValidation, JobController.getJob);
 
 /**
- * Rotas protegidas - Requerem autenticação como EMPRESA
+ * Rotas protegidas de modificação - Requerem autenticação como EMPRESA
  */
 router.use(authenticateToken);
 router.use(authorize("EMPRESA"));
@@ -63,6 +83,12 @@ router.patch("/:id/publish", getJobByIdValidation, JobController.publishJob);
  * Pausar vaga ativa
  */
 router.patch("/:id/pause", getJobByIdValidation, JobController.pauseJob);
+
+/**
+ * PATCH /jobs/:id/reactivate
+ * Reativar vaga pausada (voltar para ACTIVE)
+ */
+router.patch("/:id/reactivate", getJobByIdValidation, JobController.reactivateJob);
 
 /**
  * PATCH /jobs/:id/close

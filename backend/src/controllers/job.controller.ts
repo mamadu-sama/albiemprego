@@ -218,5 +218,61 @@ export class JobController {
       return next(error);
     }
   }
+
+  /**
+   * PATCH /jobs/:id/reactivate - Reativar vaga pausada (Empresa)
+   */
+  static async reactivateJob(req: Request, res: Response, next: NextFunction) {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          error: "VALIDATION_ERROR",
+          message: "Dados inválidos",
+          errors: errors.array(),
+        });
+      }
+
+      const userId = req.user?.userId!;
+      const { id } = req.params;
+
+      const job = await JobService.reactivateJob(userId, id);
+      return res.status(200).json(job);
+    } catch (error) {
+      logger.error("Error reactivating job:", error);
+      return next(error);
+    }
+  }
+
+  /**
+   * GET /jobs/my-jobs - Listar vagas da empresa logada (Empresa)
+   */
+  static async getMyJobs(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user?.userId!;
+      const status = req.query.status as any;
+
+      const jobs = await JobService.getMyJobs(userId, status);
+      return res.status(200).json(jobs);
+    } catch (error) {
+      logger.error("Error getting my jobs:", error);
+      return next(error);
+    }
+  }
+
+  /**
+   * GET /jobs/my-jobs/stats - Estatísticas das vagas da empresa (Empresa)
+   */
+  static async getMyJobsStats(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user?.userId!;
+
+      const stats = await JobService.getMyJobsStats(userId);
+      return res.status(200).json(stats);
+    } catch (error) {
+      logger.error("Error getting jobs stats:", error);
+      return next(error);
+    }
+  }
 }
 
