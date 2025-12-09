@@ -20,6 +20,13 @@ const router = Router();
  */
 
 /**
+ * GET /jobs/recommended
+ * Vagas recomendadas para o candidato logado (baseado no perfil)
+ * Query params: limit (opcional, default: 6)
+ */
+router.get("/recommended", authenticateToken, authorize("CANDIDATO"), JobController.getRecommendedJobs);
+
+/**
  * GET /jobs/my-jobs/stats
  * Estatísticas das vagas da empresa (contadores por status, candidaturas, visualizações)
  * DEVE vir antes de /my-jobs para evitar conflito

@@ -26,6 +26,9 @@ router.use(authorize("CANDIDATO"));
 // GET /candidates/me - Obter perfil completo
 router.get("/me", CandidateController.getProfile);
 
+// GET /candidates/me/completeness - Obter completude do perfil
+router.get("/me/completeness", CandidateController.getProfileCompleteness);
+
 // PATCH /candidates/me - Atualizar perfil
 router.patch(
   "/me",

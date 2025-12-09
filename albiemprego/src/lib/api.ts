@@ -283,6 +283,16 @@ export const candidateApi = {
     return response.data;
   },
 
+  async getProfileCompleteness(): Promise<{
+    percentage: number;
+    missingFields: string[];
+    completedFields: number;
+    totalFields: number;
+  }> {
+    const response = await api.get("/candidates/me/completeness");
+    return response.data;
+  },
+
   async updateProfile(data: {
     skills?: string[];
     experienceYears?: number;
@@ -655,6 +665,15 @@ export const jobApi = {
     jobId: string
   ): Promise<{ overall: number; breakdown: MatchScoreBreakdown }> {
     const response = await api.get(`/jobs/${jobId}/match-score`);
+    return response.data;
+  },
+
+  /**
+   * Obter vagas recomendadas para o candidato (baseado no perfil)
+   * Requer autenticação como candidato
+   */
+  async getRecommendedJobs(limit: number = 6): Promise<{ jobs: Job[]; total: number }> {
+    const response = await api.get(`/jobs/recommended?limit=${limit}`);
     return response.data;
   },
 };

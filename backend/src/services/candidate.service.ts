@@ -84,6 +84,111 @@ export class CandidateService {
   }
 
   /**
+   * Calcular percentagem de completude do perfil
+   */
+  static async getProfileCompleteness(userId: string) {
+    const candidate = await this.verifyCandidate(userId);
+
+    const fullProfile = await prisma.candidate.findUnique({
+      where: { id: candidate.id },
+      include: {
+        user: {
+          select: {
+            name: true,
+            phone: true,
+            location: true,
+            avatar: true,
+            bio: true,
+          },
+        },
+        experiences: true,
+        educations: true,
+        languages: true,
+      },
+    });
+
+    if (!fullProfile) {
+      throw new NotFoundError("Perfil não encontrado", "PROFILE_NOT_FOUND");
+    }
+
+    // Calcular campos completos
+    const fields = {
+      // Dados básicos (30%)
+      hasName: !!fullProfile.user.name,
+      hasPhone: !!fullProfile.user.phone,
+      hasLocation: !!fullProfile.user.location,
+      hasAvatar: !!fullProfile.user.avatar,
+      hasBio: !!fullProfile.user.bio,
+
+      // Dados profissionais (40%)
+      hasSkills: fullProfile.skills.length > 0,
+      hasExperience: fullProfile.experiences.length > 0,
+      hasEducation: fullProfile.educations.length > 0,
+      hasCV: !!fullProfile.cvUrl,
+
+      // Dados complementares (30%)
+      hasLanguages: fullProfile.languages.length > 0,
+      hasCurrentPosition: !!fullProfile.currentPosition,
+      hasExperienceYears: fullProfile.experienceYears !== null && fullProfile.experienceYears !== undefined,
+    };
+
+    // Pesos para cada campo
+    const weights = {
+      // Dados básicos (30%)
+      hasName: 5,
+      hasPhone: 5,
+      hasLocation: 5,
+      hasAvatar: 5,
+      hasBio: 10,
+
+      // Dados profissionais (40%)
+      hasSkills: 10,
+      hasExperience: 10,
+      hasEducation: 10,
+      hasCV: 10,
+
+      // Dados complementares (30%)
+      hasLanguages: 10,
+      hasCurrentPosition: 10,
+      hasExperienceYears: 10,
+    };
+
+    // Calcular pontuação total
+    let totalScore = 0;
+    const missingFields: string[] = [];
+
+    Object.keys(fields).forEach((key) => {
+      if (fields[key as keyof typeof fields]) {
+        totalScore += weights[key as keyof typeof weights];
+      } else {
+        // Adicionar campos faltantes
+        const fieldNames: Record<string, string> = {
+          hasName: "Nome completo",
+          hasPhone: "Telefone",
+          hasLocation: "Localização",
+          hasAvatar: "Foto de perfil",
+          hasBio: "Sobre mim",
+          hasSkills: "Competências",
+          hasExperience: "Experiência profissional",
+          hasEducation: "Formação académica",
+          hasCV: "Curriculum Vitae",
+          hasLanguages: "Idiomas",
+          hasCurrentPosition: "Cargo atual",
+          hasExperienceYears: "Anos de experiência",
+        };
+        missingFields.push(fieldNames[key]);
+      }
+    });
+
+    return {
+      percentage: totalScore,
+      missingFields,
+      completedFields: Object.values(fields).filter(Boolean).length,
+      totalFields: Object.keys(fields).length,
+    };
+  }
+
+  /**
    * Obter perfil completo do candidato
    */
   static async getProfile(userId: string) {

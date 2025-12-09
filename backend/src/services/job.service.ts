@@ -570,5 +570,143 @@ export class JobService {
 
     return job;
   }
+
+  /**
+   * Obter vagas recomendadas para um candidato baseado no seu perfil
+   */
+  static async getRecommendedJobs(userId: string, limit: number = 6) {
+    // Buscar perfil do candidato
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        candidate: {
+          include: {
+            experiences: true,
+          },
+        },
+      },
+    });
+
+    if (!user || user.type !== "CANDIDATO" || !user.candidate) {
+      throw new ForbiddenError("Apenas candidatos podem ver vagas recomendadas");
+    }
+
+    const candidate = user.candidate;
+
+    // Construir critérios de recomendação
+    const where: Prisma.JobWhereInput = {
+      status: "ACTIVE",
+      approvedAt: { not: null },
+    };
+
+    // Array para orderBy com score
+    const orderCriteria: any[] = [];
+
+    // 1. Priorizar vagas na mesma localização do candidato
+    if (user.location) {
+      orderCriteria.push({
+        location: user.location,
+      });
+    }
+
+    // 2. Buscar vagas que coincidam com skills do candidato
+    const skillMatches: string[] = [];
+    if (candidate.skills && candidate.skills.length > 0) {
+      where.OR = candidate.skills.map((skill) => ({
+        skills: {
+          has: skill,
+        },
+      }));
+      skillMatches.push(...candidate.skills);
+    }
+
+    // 3. Filtrar por nível de experiência do candidato
+    if (candidate.experienceYears !== null) {
+      if (candidate.experienceYears === 0) {
+        where.experienceLevel = { in: ["entry", "junior"] };
+      } else if (candidate.experienceYears <= 2) {
+        where.experienceLevel = { in: ["junior", "mid"] };
+      } else if (candidate.experienceYears <= 5) {
+        where.experienceLevel = { in: ["mid", "senior"] };
+      } else {
+        where.experienceLevel = "senior";
+      }
+    }
+
+    // Buscar vagas recomendadas
+    const jobs = await prisma.job.findMany({
+      where,
+      include: {
+        company: {
+          select: {
+            id: true,
+            name: true,
+            logo: true,
+            sector: true,
+          },
+        },
+        _count: {
+          select: {
+            applications: true,
+          },
+        },
+      },
+      orderBy: [
+        { isFeatured: "desc" }, // Priorizar vagas em destaque
+        { publishedAt: "desc" }, // Mais recentes
+      ],
+      take: limit * 2, // Buscar o dobro para filtrar melhor
+    });
+
+    // Calcular score de match para cada vaga
+    const jobsWithScore = jobs.map((job) => {
+      let score = 0;
+
+      // Match de localização (+30 pontos)
+      if (user.location && job.location === user.location) {
+        score += 30;
+      }
+
+      // Match de skills (+10 pontos por skill)
+      if (candidate.skills && candidate.skills.length > 0) {
+        const matchingSkills = job.skills.filter((skill) =>
+          candidate.skills.some((candidateSkill) =>
+            candidateSkill.toLowerCase().includes(skill.toLowerCase()) ||
+            skill.toLowerCase().includes(candidateSkill.toLowerCase())
+          )
+        );
+        score += matchingSkills.length * 10;
+      }
+
+      // Vaga urgente (+15 pontos)
+      if (job.isUrgent) {
+        score += 15;
+      }
+
+      // Vaga em destaque (+10 pontos)
+      if (job.isFeatured) {
+        score += 10;
+      }
+
+      // Candidatura rápida (+5 pontos)
+      if (job.quickApply) {
+        score += 5;
+      }
+
+      return {
+        ...job,
+        matchScore: score,
+      };
+    });
+
+    // Ordenar por score e retornar top N
+    const recommendedJobs = jobsWithScore
+      .sort((a, b) => b.matchScore - a.matchScore)
+      .slice(0, limit);
+
+    logger.info(`Vagas recomendadas para candidato ${userId}: ${recommendedJobs.length}`);
+
+    return recommendedJobs;
+  }
 }
 

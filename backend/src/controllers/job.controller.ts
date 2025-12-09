@@ -425,5 +425,32 @@ export class JobController {
       return next(error);
     }
   }
+
+  /**
+   * GET /jobs/recommended - Obter vagas recomendadas para o candidato
+   */
+  static async getRecommendedJobs(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user?.userId;
+
+      if (!userId) {
+        return res.status(401).json({
+          error: "UNAUTHORIZED",
+          message: "Utilizador não autenticado",
+        });
+      }
+
+      const limit = parseInt(req.query.limit as string) || 6;
+      const recommendedJobs = await JobService.getRecommendedJobs(userId, limit);
+
+      return res.status(200).json({
+        jobs: recommendedJobs,
+        total: recommendedJobs.length,
+      });
+    } catch (error) {
+      logger.error("Error getting recommended jobs:", error);
+      return next(error);
+    }
+  }
 }
 

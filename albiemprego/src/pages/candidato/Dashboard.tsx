@@ -30,6 +30,7 @@ import {
   Settings,
   ArrowRight,
   MessageSquare,
+  Loader2,
 } from "lucide-react";
 import {
   getStoredConversations,
@@ -40,6 +41,8 @@ import {
 } from "@/data/mockChat";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
+import { useQuery } from "@tanstack/react-query";
+import { candidateApi, jobApi } from "@/lib/api";
 
 const stats = [
   {
@@ -122,11 +125,27 @@ const recommendedJobs = [
 export default function CandidatoDashboard() {
   console.log("CandidatoDashboard component rendering");
   const { user } = useAuth();
-  const profileCompletion = user?.candidate?.profileCompleteness || 20;
   const navigate = useNavigate();
 
   const conversations = getStoredConversations().slice(0, 3);
   const unreadCount = getTotalUnreadCount();
+
+  // Buscar completude do perfil
+  const { data: profileCompleteness, isLoading: loadingProfile } = useQuery({
+    queryKey: ["profileCompleteness"],
+    queryFn: () => candidateApi.getProfileCompleteness(),
+    retry: 1,
+  });
+
+  // Buscar vagas recomendadas
+  const { data: recommendedJobsData, isLoading: loadingJobs } = useQuery({
+    queryKey: ["recommendedJobs"],
+    queryFn: () => jobApi.getRecommendedJobs(6),
+    retry: 1,
+  });
+
+  const profileCompletion = profileCompleteness?.percentage || 0;
+  const recommendedJobs = recommendedJobsData?.jobs || [];
 
   // Get first name from full name
   const firstName = user?.name?.split(" ")[0] || "Candidato";
@@ -152,25 +171,55 @@ export default function CandidatoDashboard() {
           {/* Profile Completion */}
           <Card className="mb-8 border-primary/20 bg-primary/5">
             <CardContent className="pt-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="font-semibold text-foreground">
-                    Complete o seu perfil
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    Perfis completos têm 3x mais hipóteses de serem contactados
-                  </p>
+              {loadingProfile ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
                 </div>
-                <span className="text-2xl font-bold text-primary">
-                  {profileCompletion}%
-                </span>
-              </div>
-              <Progress value={profileCompletion} className="h-2" />
-              <div className="mt-4 flex gap-2">
-                <Button size="sm" asChild>
-                  <Link to="/candidato/perfil/editar">Completar Perfil</Link>
-                </Button>
-              </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="font-semibold text-foreground">
+                        Complete o seu perfil
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        {profileCompletion === 100 
+                          ? "Parabéns! O seu perfil está completo 🎉"
+                          : `Faltam apenas ${profileCompleteness?.missingFields?.length || 0} campo(s) para completar`
+                        }
+                      </p>
+                    </div>
+                    <span className="text-2xl font-bold text-primary">
+                      {profileCompletion}%
+                    </span>
+                  </div>
+                  <Progress value={profileCompletion} className="h-2" />
+                  {profileCompleteness && profileCompleteness.missingFields.length > 0 && (
+                    <div className="mt-4 p-3 bg-background/50 rounded-lg">
+                      <p className="text-sm font-medium mb-2">Campos em falta:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {profileCompleteness.missingFields.slice(0, 5).map((field, idx) => (
+                          <Badge key={idx} variant="outline" className="text-xs">
+                            {field}
+                          </Badge>
+                        ))}
+                        {profileCompleteness.missingFields.length > 5 && (
+                          <Badge variant="outline" className="text-xs">
+                            +{profileCompleteness.missingFields.length - 5} mais
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  <div className="mt-4 flex gap-2">
+                    <Button size="sm" asChild>
+                      <Link to="/candidato/perfil/editar">
+                        {profileCompletion === 100 ? "Ver Perfil" : "Completar Perfil"}
+                      </Link>
+                    </Button>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
 
@@ -325,49 +374,86 @@ export default function CandidatoDashboard() {
                 </Button>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {recommendedJobs.map((job) => (
-                    <div
-                      key={job.id}
-                      className="flex items-start gap-4 p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-                      onClick={() => navigate(`/vagas/${job.id}`)}
-                    >
-                      <div className="h-12 w-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <Building2 className="h-6 w-6 text-primary" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-4 mb-2">
-                          <h4 className="font-semibold text-foreground truncate">
-                            {job.title}
-                          </h4>
-                          <MatchScoreBadge
-                            score={job.matchScore}
-                            variant="compact"
-                          />
-                        </div>
-                        <p className="text-sm text-muted-foreground mb-2">
-                          {job.company} • {job.location}
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          <Badge variant="secondary" className="text-xs">
-                            {job.type}
-                          </Badge>
-                          <Badge variant="outline" className="text-xs">
-                            {job.workMode}
-                          </Badge>
-                          {job.salary && (
-                            <span className="text-xs text-muted-foreground flex items-center gap-1">
-                              <Euro className="h-3 w-3" />
-                              {job.salary}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                {loadingJobs ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                  </div>
+                ) : recommendedJobs.length > 0 ? (
+                  <div className="space-y-4">
+                    {recommendedJobs.map((job: any) => {
+                      const salaryText = job.showSalary && job.salaryMin && job.salaryMax
+                        ? `${job.salaryMin}€ - ${job.salaryMax}€`
+                        : null;
+                      const typeMap: Record<string, string> = {
+                        "FULL_TIME": "Tempo Integral",
+                        "PART_TIME": "Meio Período",
+                        "TEMPORARY": "Temporário",
+                        "INTERNSHIP": "Estágio",
+                        "FREELANCE": "Freelance",
+                      };
+                      const workModeMap: Record<string, string> = {
+                        "PRESENCIAL": "Presencial",
+                        "REMOTO": "Remoto",
+                        "HIBRIDO": "Híbrido",
+                      };
 
-                {recommendedJobs.length === 0 && (
+                      return (
+                        <div
+                          key={job.id}
+                          className="flex items-start gap-4 p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                          onClick={() => navigate(`/vagas/${job.id}`)}
+                        >
+                          <div className="h-12 w-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <Building2 className="h-6 w-6 text-primary" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-4 mb-2">
+                              <h4 className="font-semibold text-foreground truncate">
+                                {job.title}
+                              </h4>
+                              {job.matchScore && (
+                                <MatchScoreBadge
+                                  score={job.matchScore}
+                                  variant="compact"
+                                />
+                              )}
+                            </div>
+                            <p className="text-sm text-muted-foreground mb-2">
+                              {job.company?.name || "Empresa"} • {job.location}
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              <Badge variant="secondary" className="text-xs">
+                                {typeMap[job.type] || job.type}
+                              </Badge>
+                              <Badge variant="outline" className="text-xs">
+                                {workModeMap[job.workMode] || job.workMode}
+                              </Badge>
+                              {salaryText && (
+                                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                  <Euro className="h-3 w-3" />
+                                  {salaryText}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="py-8 text-center">
+                    <p className="text-muted-foreground mb-4">
+                      Complete o seu perfil para receber recomendações personalizadas
+                    </p>
+                    <Button size="sm" asChild>
+                      <Link to="/candidato/perfil/editar">
+                        Completar Perfil
+                      </Link>
+                    </Button>
+                  </div>
+                )}
+
+                {recommendedJobs.length === 0 && false && (
                   <div className="text-center py-8 text-muted-foreground">
                     <Target className="w-12 h-12 mx-auto mb-3 opacity-50" />
                     <p className="mb-2">Nenhuma recomendação disponível</p>

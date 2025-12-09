@@ -305,4 +305,18 @@ export class CandidateController {
       return next(error);
     }
   }
+
+  /**
+   * GET /candidates/me/completeness - Obter percentagem de completude do perfil
+   */
+  static async getProfileCompleteness(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user?.userId!;
+      const completeness = await CandidateService.getProfileCompleteness(userId);
+      return res.status(200).json(completeness);
+    } catch (error) {
+      logger.error("Error getting profile completeness:", error);
+      return next(error);
+    }
+  }
 }
