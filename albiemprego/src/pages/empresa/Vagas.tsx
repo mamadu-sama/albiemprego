@@ -20,7 +20,11 @@ import {
   Trash2,
   Loader2,
   AlertCircle,
-  XCircle
+  XCircle,
+  Sparkles,
+  Star,
+  Zap,
+  Crown
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -47,9 +51,15 @@ export default function Vagas() {
   // Buscar vagas da empresa (usando endpoint dedicado)
   const { data: jobs, isLoading, isError } = useQuery({
     queryKey: ["myJobs", activeTab],
-    queryFn: () => jobApi.getMyJobs(
-      activeTab === "all" ? undefined : activeTab.toUpperCase()
-    ),
+    queryFn: () => {
+      // Para tab "featured", buscar apenas vagas ativas para depois filtrar localmente
+      if (activeTab === "featured") {
+        return jobApi.getMyJobs("ACTIVE");
+      }
+      return jobApi.getMyJobs(
+        activeTab === "all" ? undefined : activeTab.toUpperCase()
+      );
+    },
     enabled: !!user?.company?.id,
   });
 
@@ -141,11 +151,18 @@ export default function Vagas() {
     },
   });
 
-  // Filtrar vagas apenas por busca (backend já filtra por status)
+  // Filtrar vagas por busca e tab "featured"
   const filteredJobs = jobs?.filter((job: Job) => {
     const matchesSearch = !searchQuery || 
       job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       job.location.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    // Se tab "featured", mostrar apenas vagas com créditos aplicados
+    if (activeTab === "featured") {
+      const hasCredits = job.creditUsages && job.creditUsages.length > 0;
+      return matchesSearch && hasCredits;
+    }
+    
     return matchesSearch;
   }) || [];
 
@@ -248,7 +265,7 @@ export default function Vagas() {
 
           {/* Filters */}
           <div className="flex flex-col md:flex-row gap-4 mb-6">
-            <div className="relative flex-1">
+            <div className="relative md:w-80">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input 
                 placeholder="Procurar vagas..." 
@@ -257,13 +274,17 @@ export default function Vagas() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
+              <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6">
                 <TabsTrigger value="all">Todas</TabsTrigger>
                 <TabsTrigger value="active">Ativas</TabsTrigger>
                 <TabsTrigger value="paused">Pausadas</TabsTrigger>
                 <TabsTrigger value="draft">Rascunhos</TabsTrigger>
                 <TabsTrigger value="closed">Fechadas</TabsTrigger>
+                <TabsTrigger value="featured" className="flex items-center gap-1">
+                  <Sparkles className="h-3 w-3" />
+                  Destaques
+                </TabsTrigger>
               </TabsList>
             </Tabs>
           </div>
@@ -273,20 +294,38 @@ export default function Vagas() {
             {filteredJobs.length === 0 ? (
               <Card>
                 <CardContent className="p-12 text-center">
-                  <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Nenhuma vaga encontrada</h3>
-                  <p className="text-muted-foreground mb-4">
-                    {searchQuery
-                      ? "Tente ajustar os filtros de pesquisa"
-                      : "Comece por publicar a sua primeira vaga"}
-                  </p>
-                  {!searchQuery && (
-                    <Button asChild>
-                      <Link to="/empresa/nova-vaga">
-                        <Plus className="h-4 w-4 mr-2" />
-                        Publicar Nova Vaga
-                      </Link>
-                    </Button>
+                  {activeTab === "featured" ? (
+                    <>
+                      <Sparkles className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Nenhuma vaga com destaques</h3>
+                      <p className="text-muted-foreground mb-4">
+                        Ainda não aplicou créditos em nenhuma vaga. Use destaques para aumentar a visibilidade!
+                      </p>
+                      <Button asChild variant="default">
+                        <Link to="/empresa/planos">
+                          <Crown className="h-4 w-4 mr-2" />
+                          Ver Planos e Créditos
+                        </Link>
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Nenhuma vaga encontrada</h3>
+                      <p className="text-muted-foreground mb-4">
+                        {searchQuery
+                          ? "Tente ajustar os filtros de pesquisa"
+                          : "Comece por publicar a sua primeira vaga"}
+                      </p>
+                      {!searchQuery && (
+                        <Button asChild>
+                          <Link to="/empresa/nova-vaga">
+                            <Plus className="h-4 w-4 mr-2" />
+                            Publicar Nova Vaga
+                          </Link>
+                        </Button>
+                      )}
+                    </>
                   )}
                 </CardContent>
               </Card>
@@ -296,9 +335,33 @@ export default function Vagas() {
                   <CardContent className="p-6">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
+                        <div className="flex items-center gap-3 mb-2 flex-wrap">
                           <h3 className="text-xl font-semibold">{job.title}</h3>
                           {getStatusBadge(job.status)}
+                          
+                          {/* Badges de Créditos Aplicados */}
+                          {job.creditUsages && job.creditUsages.length > 0 && (
+                            <>
+                              {job.creditUsages.some((usage: any) => usage.creditType === "FEATURED") && (
+                                <Badge className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white">
+                                  <Star className="h-3 w-3 mr-1" />
+                                  Destaque
+                                </Badge>
+                              )}
+                              {job.creditUsages.some((usage: any) => usage.creditType === "HOMEPAGE") && (
+                                <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 text-white">
+                                  <Crown className="h-3 w-3 mr-1" />
+                                  Homepage
+                                </Badge>
+                              )}
+                              {job.creditUsages.some((usage: any) => usage.creditType === "URGENT") && (
+                                <Badge className="bg-gradient-to-r from-red-500 to-orange-500 text-white">
+                                  <Zap className="h-3 w-3 mr-1" />
+                                  Urgente
+                                </Badge>
+                              )}
+                            </>
+                          )}
                         </div>
                         
                         <div className="flex flex-wrap gap-4 text-sm text-muted-foreground mb-4">
@@ -350,12 +413,21 @@ export default function Vagas() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           {job.status === "ACTIVE" && (
-                            <DropdownMenuItem asChild>
-                              <Link to={`/empresa/vagas/${job.id}/candidaturas`}>
-                                <Users className="h-4 w-4 mr-2" />
-                                Ver Candidaturas
-                              </Link>
-                            </DropdownMenuItem>
+                            <>
+                              <DropdownMenuItem asChild>
+                                <Link to={`/empresa/vagas/${job.id}/candidaturas`}>
+                                  <Users className="h-4 w-4 mr-2" />
+                                  Ver Candidaturas
+                                </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem asChild>
+                                <Link to={`/empresa/vagas/${job.id}/destacar`}>
+                                  <Sparkles className="h-4 w-4 mr-2" />
+                                  Gerir Destaques
+                                </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                            </>
                           )}
                           
                           {(job.status === "DRAFT" || job.status === "PAUSED") && (
@@ -388,16 +460,17 @@ export default function Vagas() {
                             </DropdownMenuItem>
                           )}
 
-                          <DropdownMenuSeparator />
-
                           {(job.status === "ACTIVE" || job.status === "PAUSED") && (
-                            <DropdownMenuItem 
-                              onClick={() => closeJobMutation.mutate(job.id)}
-                              className="text-yellow-600"
-                            >
-                              <XCircle className="h-4 w-4 mr-2" />
-                              Fechar Vaga
-                            </DropdownMenuItem>
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                onClick={() => closeJobMutation.mutate(job.id)}
+                                className="text-yellow-600"
+                              >
+                                <XCircle className="h-4 w-4 mr-2" />
+                                Fechar Vaga
+                              </DropdownMenuItem>
+                            </>
                           )}
 
                           {job.status === "DRAFT" && (job._count?.applications || 0) === 0 && (
