@@ -125,6 +125,17 @@ enum NotificationPriority {
   URGENT
 }
 
+enum RequestType {
+  PLAN_SUBSCRIPTION
+  CREDIT_PURCHASE
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 // ============================================
 // MODELS
 // ============================================
@@ -215,6 +226,7 @@ model Company {
   creditBalances  CreditBalance[]
   transactions    Transaction[]
   notifications   CompanyNotification[]
+  planRequests    PlanRequest[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -479,6 +491,7 @@ model SubscriptionPlan {
   updatedAt   DateTime @updatedAt
   
   subscriptions CompanySubscription[]
+  planRequests  PlanRequest[]
   
   @@map("subscription_plans")
 }
@@ -508,6 +521,7 @@ model CreditPackage {
   updatedAt   DateTime @updatedAt
   
   transactions Transaction[]
+  planRequests PlanRequest[]
   
   @@map("credit_packages")
 }
@@ -657,3 +671,34 @@ model CompanyNotification {
   @@map("company_notifications")
 }
 
+model PlanRequest {
+  id          String        @id @default(uuid())
+  companyId   String
+  company     Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  type        RequestType
+  status      RequestStatus @default(PENDING)
+  
+  // Para solicitações de plano
+  planId      String?
+  plan        SubscriptionPlan? @relation(fields: [planId], references: [id])
+  
+  // Para solicitações de crédito
+  packageId   String?
+  package     CreditPackage? @relation(fields: [packageId], references: [id])
+  
+  // Mensagem da empresa
+  message     String?
+  
+  // Resposta do admin
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  adminNotes  String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([companyId, status])
+  @@index([status, createdAt])
+  @@map("plan_requests")
+}

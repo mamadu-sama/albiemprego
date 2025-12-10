@@ -53,6 +53,7 @@ import AdminPerfilUtilizador from "./pages/admin/PerfilUtilizador";
 import AdminPerfilEmpresa from "./pages/admin/PerfilEmpresa";
 import EnviarEmailAdmin from "./pages/admin/EnviarEmailAdmin";
 import AdminGerirPlanos from "./pages/admin/GerirPlanos";
+import AdminGerirSolicitacoes from "./pages/admin/GerirSolicitacoes";
 import AdminMensagens from "./pages/admin/Mensagens";
 import Sobre from "./pages/Sobre";
 import Contacto from "./pages/Contacto";
@@ -432,6 +433,14 @@ function AppContent() {
           element={
             <ProtectedRoute requiredType="ADMIN">
               <AdminGerirPlanos />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/solicitacoes" 
+          element={
+            <ProtectedRoute requiredType="ADMIN">
+              <AdminGerirSolicitacoes />
             </ProtectedRoute>
           } 
         />

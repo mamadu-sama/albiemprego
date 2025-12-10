@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useSubscription } from "@/contexts/SubscriptionContext";
+import { companyRequestApi } from "@/lib/api";
 import { 
   Check, 
   Star, 
@@ -19,25 +20,55 @@ import {
   Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
 
 export default function EmpresaPlanos() {
   const { toast } = useToast();
   const { plans, creditPackages, currentSubscription } = useSubscription();
+  const [isRequesting, setIsRequesting] = useState(false);
 
-  const handleSubscribe = (planId: string) => {
-    toast({
-      title: "Contacte o Administrador",
-      description: "Para alterar o seu plano, por favor contacte o administrador da plataforma.",
-      variant: "default",
-    });
+  const handleSubscribe = async (planId: string, planName: string) => {
+    try {
+      setIsRequesting(true);
+      await companyRequestApi.requestPlan(planId);
+      
+      toast({
+        title: "✅ Solicitação enviada!",
+        description: `A sua solicitação do plano ${planName} foi enviada ao administrador para aprovação.`,
+        variant: "default",
+      });
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || "Erro ao enviar solicitação";
+      toast({
+        title: "Erro",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsRequesting(false);
+    }
   };
 
-  const handlePurchaseCredits = (packageId: string) => {
-    toast({
-      title: "Contacte o Administrador",
-      description: "Para comprar créditos, por favor contacte o administrador da plataforma.",
-      variant: "default",
-    });
+  const handlePurchaseCredits = async (packageId: string, packageName: string) => {
+    try {
+      setIsRequesting(true);
+      await companyRequestApi.requestCredits(packageId);
+      
+      toast({
+        title: "✅ Solicitação enviada!",
+        description: `A sua solicitação do pacote ${packageName} foi enviada ao administrador para aprovação.`,
+        variant: "default",
+      });
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || "Erro ao enviar solicitação";
+      toast({
+        title: "Erro",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsRequesting(false);
+    }
   };
 
   const getPlanIcon = (planName: string) => {
@@ -196,10 +227,19 @@ export default function EmpresaPlanos() {
                         <Button 
                           className="w-full" 
                           variant={isCurrentPlan ? "outline" : plan.isPopular ? "default" : "secondary"}
-                          onClick={() => handleSubscribe(plan.id)}
-                          disabled={isCurrentPlan}
+                          onClick={() => handleSubscribe(plan.id, plan.name)}
+                          disabled={isCurrentPlan || isRequesting}
                         >
-                          {isCurrentPlan ? "Plano Atual" : "Escolher Plano"}
+                          {isRequesting ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              A enviar...
+                            </>
+                          ) : isCurrentPlan ? (
+                            "Plano Atual"
+                          ) : (
+                            "Solicitar Plano"
+                          )}
                         </Button>
                       </CardFooter>
                     </Card>
@@ -278,9 +318,17 @@ export default function EmpresaPlanos() {
                         <Button 
                           className="w-full" 
                           variant="outline"
-                          onClick={() => handlePurchaseCredits(pkg.id)}
+                          onClick={() => handlePurchaseCredits(pkg.id, pkg.name)}
+                          disabled={isRequesting}
                         >
-                          Comprar
+                          {isRequesting ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              A enviar...
+                            </>
+                          ) : (
+                            "Solicitar Créditos"
+                          )}
                         </Button>
                       </CardFooter>
                     </Card>

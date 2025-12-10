@@ -926,6 +926,85 @@ export const jobCreditApi = {
   },
 };
 
+// ============================================
+// EMPRESA - SOLICITAÇÕES DE PLANOS/CRÉDITOS
+// ============================================
+
+export const companyRequestApi = {
+  async requestPlan(planId: string, message?: string): Promise<any> {
+    const response = await api.post("/company/requests/plan", { planId, message });
+    return response.data;
+  },
+
+  async requestCredits(packageId: string, message?: string): Promise<any> {
+    const response = await api.post("/company/requests/credits", { packageId, message });
+    return response.data;
+  },
+
+  async getMyRequests(status?: string): Promise<any> {
+    const response = await api.get("/company/requests", {
+      params: { status },
+    });
+    return response.data;
+  },
+
+  async cancelRequest(requestId: string): Promise<any> {
+    const response = await api.delete(`/company/requests/${requestId}`);
+    return response.data;
+  },
+};
+
+// ============================================
+// ADMIN - GESTÃO DE SOLICITAÇÕES
+// ============================================
+
+export const adminRequestApi = {
+  async getAllRequests(filters?: {
+    status?: string;
+    type?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{
+    success: boolean;
+    requests: any[];
+    pagination: {
+      total: number;
+      page: number;
+      limit: number;
+      pages: number;
+    };
+  }> {
+    const response = await api.get("/admin/requests", { params: filters });
+    return response.data;
+  },
+
+  async getRequestById(requestId: string): Promise<any> {
+    const response = await api.get(`/admin/requests/${requestId}`);
+    return response.data;
+  },
+
+  async approveRequest(requestId: string, adminNotes?: string): Promise<any> {
+    const response = await api.post(`/admin/requests/${requestId}/approve`, { adminNotes });
+    return response.data;
+  },
+
+  async rejectRequest(requestId: string, adminNotes?: string): Promise<any> {
+    const response = await api.post(`/admin/requests/${requestId}/reject`, { adminNotes });
+    return response.data;
+  },
+
+  async getRequestStats(): Promise<{
+    total: number;
+    pending: number;
+    approved: number;
+    rejected: number;
+    byType: any[];
+  }> {
+    const response = await api.get("/admin/requests/stats");
+    return response.data.data;
+  },
+};
+
 // Health check
 export const healthCheck = async (): Promise<{
   status: string;

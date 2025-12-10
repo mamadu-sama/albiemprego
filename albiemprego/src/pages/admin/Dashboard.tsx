@@ -20,7 +20,8 @@ import {
   Shield,
   Bell,
   CreditCard,
-  MessageSquare
+  MessageSquare,
+  ClipboardCheck
 } from "lucide-react";
 import { getTotalUnreadCount } from "@/data/mockChat";
 
@@ -120,7 +121,7 @@ export default function AdminDashboard() {
                   <CardTitle>Ações Rápidas</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-8 gap-4">
                     <Link 
                       to="/admin/utilizadores" 
                       className="flex flex-col items-center gap-2 p-4 rounded-lg border border-border hover:bg-muted transition-colors"
@@ -156,6 +157,16 @@ export default function AdminDashboard() {
                     >
                       <CreditCard className="h-8 w-8 text-primary" />
                       <span className="text-sm font-medium">Planos</span>
+                    </Link>
+                    <Link 
+                      to="/admin/solicitacoes" 
+                      className="flex flex-col items-center gap-2 p-4 rounded-lg border border-orange-500/30 bg-orange-500/5 hover:bg-orange-500/10 transition-colors relative"
+                    >
+                      <ClipboardCheck className="h-8 w-8 text-orange-500" />
+                      <span className="text-sm font-medium">Solicitações</span>
+                      <Badge variant="secondary" className="absolute -top-1 -right-1 text-xs px-1.5 bg-orange-500 text-white">
+                        Novo
+                      </Badge>
                     </Link>
                     <Link 
                       to="/admin/notificacoes" 
