@@ -28,6 +28,8 @@ import adminSubscriptionRoutes from "./routes/admin-subscription.routes";
 import companySubscriptionRoutes from "./routes/company-subscription.routes";
 import companyPlanRequestRoutes from "./routes/company-plan-request.routes";
 import adminPlanRequestRoutes from "./routes/admin-plan-request.routes";
+import applicationRoutes from "./routes/application.routes";
+import companyApplicationRoutes from "./routes/company-application.routes";
 
 // Criar aplicação Express
 const app: Application = express();
@@ -107,6 +109,8 @@ app.use("/api/v1/admin", adminSubscriptionRoutes);
 app.use("/api/v1/admin/requests", adminPlanRequestRoutes);
 app.use("/api/v1/subscriptions", companySubscriptionRoutes);
 app.use("/api/v1/company/requests", companyPlanRequestRoutes);
+app.use("/api/v1/applications", applicationRoutes);
+app.use("/api/v1/company/applications", companyApplicationRoutes);
 
 // ============================================
 // ERROR HANDLING

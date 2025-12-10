@@ -353,27 +353,29 @@ export default function GerirSolicitacoes() {
             <DialogTitle>
               {reviewAction === "approve" ? "Aprovar Solicitação" : "Rejeitar Solicitação"}
             </DialogTitle>
-            <DialogDescription>
-              {selectedRequest && (
-                <>
-                  <p className="mb-2">
-                    Empresa: <strong>{selectedRequest.company.name}</strong>
-                  </p>
-                  <p className="mb-2">
-                    Item:{" "}
-                    <strong>
-                      {selectedRequest.type === "PLAN_SUBSCRIPTION"
-                        ? selectedRequest.plan?.name
-                        : selectedRequest.package?.name}
-                    </strong>
-                  </p>
-                  {selectedRequest.message && (
-                    <p className="text-sm mt-2">
-                      <strong>Mensagem da empresa:</strong> {selectedRequest.message}
-                    </p>
-                  )}
-                </>
-              )}
+            <DialogDescription asChild>
+              <div>
+                {selectedRequest && (
+                  <>
+                    <div className="mb-2">
+                      Empresa: <strong>{selectedRequest.company.name}</strong>
+                    </div>
+                    <div className="mb-2">
+                      Item:{" "}
+                      <strong>
+                        {selectedRequest.type === "PLAN_SUBSCRIPTION"
+                          ? selectedRequest.plan?.name
+                          : selectedRequest.package?.name}
+                      </strong>
+                    </div>
+                    {selectedRequest.message && (
+                      <div className="text-sm mt-2">
+                        <strong>Mensagem da empresa:</strong> {selectedRequest.message}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
             </DialogDescription>
           </DialogHeader>
 

@@ -95,9 +95,12 @@ export const approveRequest = async (req: Request, res: Response) => {
       });
     }
     console.error("Error approving request:", error);
+    console.error("Error stack:", (error as Error).stack);
+    console.error("Error message:", (error as Error).message);
     res.status(500).json({
       error: "INTERNAL_ERROR",
       message: "Erro ao aprovar solicitação",
+      debug: process.env.NODE_ENV === "development" ? (error as Error).message : undefined,
     });
   }
 };

@@ -17,6 +17,8 @@ interface AuthContextType {
   updateUserProfile: (data: UpdateProfileData) => Promise<void>;
   uploadAvatar: (file: File) => Promise<void>;
   deleteAvatar: () => Promise<void>;
+  saveReturnUrl: (url: string) => void;
+  getReturnUrl: () => string | null;
 }
 
 interface UpdateProfileData {
@@ -77,6 +79,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const saveReturnUrl = (url: string) => {
+    sessionStorage.setItem("returnUrl", url);
+  };
+
+  const getReturnUrl = (): string | null => {
+    return sessionStorage.getItem("returnUrl");
+  };
+
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
@@ -93,6 +103,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         title: "Login efetuado!",
         description: `Bem-vindo de volta, ${response.user.name}!`,
       });
+
+      // Verificar se há returnUrl salvo
+      const returnUrl = sessionStorage.getItem("returnUrl");
+      if (returnUrl) {
+        sessionStorage.removeItem("returnUrl");
+        window.location.href = returnUrl;
+        return;
+      }
 
       // Redirecionar baseado no tipo de utilizador
       const redirectPath = 
@@ -131,6 +149,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Empresa pendente - mostrar mensagem
         window.location.href = "/auth/pending-approval";
       } else {
+        // Verificar se há returnUrl salvo
+        const returnUrl = sessionStorage.getItem("returnUrl");
+        if (returnUrl) {
+          sessionStorage.removeItem("returnUrl");
+          window.location.href = returnUrl;
+          return;
+        }
+
         const redirectPath = 
           response.user.type === "CANDIDATO" ? "/candidato/dashboard" :
           "/empresa/dashboard";
@@ -292,6 +318,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         updateUserProfile,
         uploadAvatar,
         deleteAvatar,
+        saveReturnUrl,
+        getReturnUrl,
       }}
     >
       {children}

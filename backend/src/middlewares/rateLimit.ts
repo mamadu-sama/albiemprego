@@ -3,11 +3,11 @@ import rateLimit from "express-rate-limit";
 
 /**
  * Rate limiter geral
- * 100 requisições por 15 minutos por IP
+ * 500 requisições por 15 minutos por IP (muito mais permissivo)
  */
 export const generalLimiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || "900000"), // 15 minutos
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || "100"),
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || "500"), // Aumentado para 500
   message: {
     error: "TOO_MANY_REQUESTS",
     message: "Demasiadas requisições. Tente novamente mais tarde.",
@@ -15,8 +15,10 @@ export const generalLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => {
-    // Skip para health check e em testes
-    return req.path === "/health" || process.env.NODE_ENV === "test";
+    // Skip para health check, em testes e em desenvolvimento
+    return req.path === "/health" || 
+           process.env.NODE_ENV === "test" || 
+           process.env.NODE_ENV === "development";
   },
 });
 
@@ -66,5 +68,25 @@ export const searchLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: () => process.env.NODE_ENV === "test",
+});
+
+/**
+ * Rate limiter para aplicar créditos
+ * 10 requisições por 1 minuto por utilizador autenticado
+ */
+export const creditLimiter = rateLimit({
+  windowMs: 60000, // 1 minuto
+  max: 10,
+  message: {
+    error: "TOO_MANY_CREDIT_REQUESTS",
+    message: "Demasiadas tentativas de aplicar créditos. Aguarde um momento.",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test",
+  keyGenerator: (req) => {
+    // Use userId instead of IP for authenticated routes
+    return req.user?.userId || req.ip;
+  },
 });
 

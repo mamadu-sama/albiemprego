@@ -519,6 +519,71 @@ export class JobController {
   }
 
   /**
+   * DELETE /jobs/credit-usage/:usageId - Remover destaque/crédito aplicado
+   */
+  static async removeCreditUsage(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const { usageId } = req.params;
+      const userId = req.user?.userId;
+
+      if (!userId) {
+        throw new AppError("Não autenticado", 401, "UNAUTHORIZED");
+      }
+
+      // Buscar company
+      const company = await prisma.company.findUnique({
+        where: { userId },
+        select: { id: true },
+      });
+
+      if (!company) {
+        throw new AppError("Empresa não encontrada", 404, "COMPANY_NOT_FOUND");
+      }
+
+      // Buscar credit usage
+      const usage = await prisma.creditUsage.findUnique({
+        where: { id: usageId },
+        include: {
+          job: {
+            select: {
+              companyId: true,
+            },
+          },
+        },
+      });
+
+      if (!usage) {
+        throw new AppError(
+          "Uso de crédito não encontrado",
+          404,
+          "USAGE_NOT_FOUND"
+        );
+      }
+
+      // Verificar permissão
+      if (usage.job.companyId !== company.id) {
+        throw new AppError("Não tem permissão", 403, "FORBIDDEN");
+      }
+
+      // Remover
+      await prisma.creditUsage.delete({
+        where: { id: usageId },
+      });
+
+      res.json({
+        success: true,
+        message: "Destaque removido com sucesso",
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * GET /jobs/:id/analytics - Obter analytics de uma vaga
    */
   static async getJobAnalytics(
@@ -559,6 +624,64 @@ export class JobController {
       return res.status(200).json(analytics);
     } catch (error) {
       logger.error("Error getting job analytics:", error);
+      return next(error);
+    }
+  }
+
+  /**
+   * GET /jobs/featured/homepage - Vagas em destaque na homepage
+   */
+  static async getFeaturedHomepageJobs(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const limit = req.query.limit
+        ? parseInt(req.query.limit as string)
+        : 6;
+
+      const jobs = await JobService.getFeaturedHomepageJobs(limit);
+
+      return res.status(200).json(jobs);
+    } catch (error) {
+      logger.error("Error getting featured homepage jobs:", error);
+      return next(error);
+    }
+  }
+
+  /**
+   * GET /jobs/featured/listing - Vagas em destaque na listagem
+   */
+  static async getFeaturedJobs(req: Request, res: Response, next: NextFunction) {
+    try {
+      const limit = req.query.limit
+        ? parseInt(req.query.limit as string)
+        : 20;
+
+      const jobs = await JobService.getFeaturedJobs(limit);
+
+      return res.status(200).json(jobs);
+    } catch (error) {
+      logger.error("Error getting featured jobs:", error);
+      return next(error);
+    }
+  }
+
+  /**
+   * GET /jobs/urgent - Vagas urgentes
+   */
+  static async getUrgentJobs(req: Request, res: Response, next: NextFunction) {
+    try {
+      const limit = req.query.limit
+        ? parseInt(req.query.limit as string)
+        : 10;
+
+      const jobs = await JobService.getUrgentJobs(limit);
+
+      return res.status(200).json(jobs);
+    } catch (error) {
+      logger.error("Error getting urgent jobs:", error);
       return next(error);
     }
   }

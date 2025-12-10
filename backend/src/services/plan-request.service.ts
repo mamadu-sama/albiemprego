@@ -1,5 +1,7 @@
 import { PrismaClient, RequestType, RequestStatus } from "@prisma/client";
 import { AppError } from "../utils/errors";
+import { CompanySubscriptionService } from "./company-subscription.service";
+import { CreditService } from "./credit.service";
 
 const prisma = new PrismaClient();
 
@@ -82,7 +84,7 @@ export class PlanRequestService {
     await prisma.companyNotification.create({
       data: {
         companyId,
-        type: "REQUEST_SUBMITTED",
+        type: "PLAN_REQUEST",
         priority: "NORMAL",
         title: "Solicitação enviada",
         message: `A sua solicitação do plano ${plan.name} foi enviada e está a aguardar aprovação.`,
@@ -170,7 +172,7 @@ export class PlanRequestService {
     await prisma.companyNotification.create({
       data: {
         companyId,
-        type: "REQUEST_SUBMITTED",
+        type: "CREDIT_REQUEST",
         priority: "NORMAL",
         title: "Solicitação enviada",
         message: `A sua solicitação do pacote ${creditPackage.name} foi enviada e está a aguardar aprovação.`,
@@ -183,10 +185,7 @@ export class PlanRequestService {
   /**
    * Listar solicitações de uma empresa
    */
-  static async getCompanyRequests(
-    companyId: string,
-    status?: RequestStatus
-  ) {
+  static async getCompanyRequests(companyId: string, status?: RequestStatus) {
     const where: any = { companyId };
 
     if (status) {
@@ -303,7 +302,11 @@ export class PlanRequestService {
     });
 
     if (!request) {
-      throw new AppError("Solicitação não encontrada", 404, "REQUEST_NOT_FOUND");
+      throw new AppError(
+        "Solicitação não encontrada",
+        404,
+        "REQUEST_NOT_FOUND"
+      );
     }
 
     if (request.plan && (request.plan as any).features) {
@@ -351,13 +354,8 @@ export class PlanRequestService {
 
     // Executar ação baseada no tipo
     if (request.type === RequestType.PLAN_SUBSCRIPTION && request.planId) {
-      // Importar serviço de subscrição
-      const { CompanySubscriptionService } = await import(
-        "./company-subscription.service"
-      );
-
       // Ativar plano
-      await CompanySubscriptionService.assignPlan(
+      await CompanySubscriptionService.assignSubscriptionManually(
         request.companyId,
         request.planId,
         adminId
@@ -367,7 +365,7 @@ export class PlanRequestService {
       await prisma.companyNotification.create({
         data: {
           companyId: request.companyId,
-          type: "REQUEST_APPROVED",
+          type: "PLAN_ACTIVATED",
           priority: "HIGH",
           title: "Solicitação aprovada! 🎉",
           message: `O seu pedido do plano ${request.plan?.name} foi aprovado e está agora ativo!`,
@@ -377,9 +375,6 @@ export class PlanRequestService {
       request.type === RequestType.CREDIT_PURCHASE &&
       request.packageId
     ) {
-      // Importar serviço de crédito
-      const { CreditService } = await import("./credit.service");
-
       // Adicionar créditos do pacote
       await CreditService.addCreditsFromPackage(
         request.companyId,
@@ -391,7 +386,7 @@ export class PlanRequestService {
       await prisma.companyNotification.create({
         data: {
           companyId: request.companyId,
-          type: "REQUEST_APPROVED",
+          type: "CREDIT_ADDED",
           priority: "HIGH",
           title: "Solicitação aprovada! 🎉",
           message: `O seu pedido do pacote ${request.package?.name} foi aprovado e os créditos foram adicionados!`,
@@ -444,7 +439,7 @@ export class PlanRequestService {
     await prisma.companyNotification.create({
       data: {
         companyId: request.companyId,
-        type: "REQUEST_REJECTED",
+        type: "PLAN_REQUEST",
         priority: "NORMAL",
         title: "Solicitação rejeitada",
         message: `O seu pedido de ${itemName} foi rejeitado. ${adminNotes ? `Motivo: ${adminNotes}` : ""}`,
@@ -512,4 +507,3 @@ export class PlanRequestService {
     };
   }
 }
-

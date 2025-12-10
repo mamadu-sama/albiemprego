@@ -10,7 +10,7 @@ import {
 } from "../validators/job.validator";
 import { searchJobsValidation } from "../validators/job-search.validator";
 import { applyCreditValidation } from "../validators/subscription.validator";
-import { searchLimiter } from "../middlewares/rateLimit";
+import { searchLimiter, creditLimiter } from "../middlewares/rateLimit";
 
 const router = Router();
 
@@ -26,6 +26,27 @@ const router = Router();
  * Query params: limit (opcional, default: 6)
  */
 router.get("/recommended", authenticateToken, authorize("CANDIDATO"), JobController.getRecommendedJobs);
+
+/**
+ * GET /jobs/featured/homepage
+ * Vagas em destaque na homepage (público)
+ * Query params: limit (opcional, default: 6)
+ */
+router.get("/featured/homepage", JobController.getFeaturedHomepageJobs);
+
+/**
+ * GET /jobs/featured/listing
+ * Vagas em destaque na listagem (público)
+ * Query params: limit (opcional, default: 20)
+ */
+router.get("/featured/listing", JobController.getFeaturedJobs);
+
+/**
+ * GET /jobs/urgent
+ * Vagas urgentes (público)
+ * Query params: limit (opcional, default: 10)
+ */
+router.get("/urgent", JobController.getUrgentJobs);
 
 /**
  * GET /jobs/my-jobs/stats
@@ -124,7 +145,13 @@ router.patch("/:id/close", getJobByIdValidation, JobController.closeJob);
  * POST /jobs/:id/apply-credit
  * Aplicar crédito numa vaga (Featured, Homepage ou Urgent)
  */
-router.post("/:id/apply-credit", authenticateToken, authorize("EMPRESA"), applyCreditValidation, JobController.applyCredit);
+router.post("/:id/apply-credit", creditLimiter, authenticateToken, authorize("EMPRESA"), applyCreditValidation, JobController.applyCredit);
+
+/**
+ * DELETE /jobs/credit-usage/:usageId
+ * Remover destaque/crédito aplicado
+ */
+router.delete("/credit-usage/:usageId", authenticateToken, authorize("EMPRESA"), JobController.removeCreditUsage);
 
 /**
  * GET /jobs/:id/analytics

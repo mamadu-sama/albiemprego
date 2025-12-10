@@ -32,20 +32,37 @@ export class CompanySubscriptionService {
       },
     });
 
+    // Buscar créditos disponíveis
+    const creditsData = await CreditService.getCompanyCredits(companyId);
+
     // Parsear features do plano se subscription existir
     if (subscription && subscription.plan) {
       return {
-        ...subscription,
+        subscription: {
+          ...subscription,
+          plan: {
+            ...subscription.plan,
+            features: typeof subscription.plan.features === 'string' 
+              ? JSON.parse(subscription.plan.features) 
+              : subscription.plan.features,
+          },
+        },
         plan: {
           ...subscription.plan,
           features: typeof subscription.plan.features === 'string' 
             ? JSON.parse(subscription.plan.features) 
             : subscription.plan.features,
         },
+        credits: creditsData.summary,
       };
     }
 
-    return subscription;
+    // Mesmo sem subscription, retornar créditos (caso tenha comprado pacotes)
+    return {
+      subscription: subscription || null,
+      plan: null,
+      credits: creditsData.summary,
+    };
   }
 
   /**

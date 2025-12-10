@@ -1,8 +1,10 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { JobCard, Job } from "@/components/jobs/JobCard";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Loader2, Home } from "lucide-react";
 import { motion } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
+import { jobApi } from "@/lib/api";
 
 // Mock data for featured jobs
 const featuredJobs: Job[] = [
@@ -109,15 +111,44 @@ const item = {
 };
 
 export function FeaturedJobs() {
+  const { data: jobs, isLoading } = useQuery({
+    queryKey: ["featured-homepage-jobs"],
+    queryFn: () => jobApi.getFeaturedHomepageJobs(6),
+    staleTime: 5 * 60 * 1000, // 5 minutos
+  });
+
+  const formatJob = (job: any): Job => ({
+    id: job.id,
+    title: job.title,
+    company: job.company.name,
+    location: job.location,
+    contractType: job.type === "FULL_TIME" ? "Permanente" : 
+                  job.type === "PART_TIME" ? "Part-time" : 
+                  job.type === "TEMPORARY" ? "Temporário" :
+                  job.type === "INTERNSHIP" ? "Estágio" : "Freelance",
+    workMode: job.workMode === "PRESENCIAL" ? "Presencial" :
+              job.workMode === "REMOTO" ? "Remoto" : "Híbrido",
+    salary: job.showSalary && job.salaryMin ? 
+            `${job.salaryMin}€${job.salaryMax ? ` - ${job.salaryMax}€` : ''}/${job.salaryPeriod || 'mês'}` : 
+            undefined,
+    postedAt: new Date(job.createdAt).toLocaleDateString("pt-PT"),
+    isFeatured: job.creditUsages?.some((u: any) => u.creditType === "HOMEPAGE" && u.isActive),
+    isUrgent: job.creditUsages?.some((u: any) => u.creditType === "URGENT" && u.isActive),
+    quickApply: true,
+  });
+
   return (
     <section className="section-padding bg-muted/30">
       <div className="container-custom">
         {/* Section Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10">
           <div>
-            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-2">
-              Vagas em Destaque
-            </h2>
+            <div className="flex items-center gap-2 mb-2">
+              <Home className="h-6 w-6 text-primary" />
+              <h2 className="text-3xl md:text-4xl font-bold text-foreground">
+                Vagas em Destaque
+              </h2>
+            </div>
             <p className="text-muted-foreground text-lg">
               As melhores oportunidades da região selecionadas para si
             </p>
@@ -130,20 +161,38 @@ export function FeaturedJobs() {
           </Link>
         </div>
 
+        {/* Loading State */}
+        {isLoading && (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        )}
+
         {/* Jobs Grid */}
-        <motion.div
-          variants={container}
-          initial="hidden"
-          whileInView="show"
-          viewport={{ once: true, margin: "-50px" }}
-          className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
-        >
-          {featuredJobs.map((job) => (
-            <motion.div key={job.id} variants={item}>
-              <JobCard job={job} />
-            </motion.div>
-          ))}
-        </motion.div>
+        {!isLoading && jobs && jobs.length > 0 && (
+          <motion.div
+            variants={container}
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, margin: "-50px" }}
+            className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+          >
+            {jobs.map((job) => (
+              <motion.div key={job.id} variants={item}>
+                <JobCard job={formatJob(job)} />
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
+
+        {/* Empty State */}
+        {!isLoading && (!jobs || jobs.length === 0) && (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">
+              Nenhuma vaga em destaque disponível no momento.
+            </p>
+          </div>
+        )}
 
         {/* CTA */}
         <div className="mt-12 text-center">

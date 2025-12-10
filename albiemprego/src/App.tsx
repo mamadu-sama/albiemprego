@@ -11,6 +11,8 @@ import { MaintenanceBanner } from "@/components/MaintenanceBanner";
 import Index from "./pages/Index";
 import Vagas from "./pages/Vagas";
 import VagaDetail from "./pages/VagaDetail";
+import CandidatarVaga from "./pages/CandidatarVaga";
+import GerirDestaques from "./pages/empresa/GerirDestaques";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import PendingApproval from "./pages/auth/PendingApproval";
@@ -38,7 +40,6 @@ import EmpresaConta from "./pages/empresa/Conta";
 import PerfilCandidato from "./pages/empresa/PerfilCandidato";
 import EnviarEmail from "./pages/empresa/EnviarEmail";
 import EmpresaPlanos from "./pages/empresa/Planos";
-import DestacarVaga from "./pages/empresa/DestacarVaga";
 import AdminDashboard from "./pages/admin/Dashboard";
 import AdminUtilizadores from "./pages/admin/Utilizadores";
 import AdminEmpresas from "./pages/admin/Empresas";
@@ -105,6 +106,14 @@ function AppContent() {
         <Route path="/" element={<Index />} />
         <Route path="/vagas" element={<Vagas />} />
         <Route path="/vagas/:id" element={<VagaDetail />} />
+        <Route 
+          path="/candidatar/:jobId" 
+          element={
+            <ProtectedRoute requiredType="CANDIDATO">
+              <CandidatarVaga />
+            </ProtectedRoute>
+          } 
+        />
         
         {/* Auth Routes - Only for guests (non-authenticated users) */}
         <Route path="/auth/login" element={<GuestRoute><Login /></GuestRoute>} />
@@ -295,7 +304,7 @@ function AppContent() {
           path="/empresa/vagas/:id/destacar" 
           element={
             <ProtectedRoute requiredType="EMPRESA">
-              <DestacarVaga />
+              <GerirDestaques />
             </ProtectedRoute>
           } 
         />

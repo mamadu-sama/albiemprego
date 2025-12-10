@@ -119,16 +119,31 @@ export class CreditService {
 
     for (const credit of creditsToAdd) {
       if (credit.amount > 0) {
-        // Criar novo registro para cada compra (não fazer merge)
-        await prisma.creditBalance.create({
-          data: {
+        const source = adminId ? 'ADMIN_GRANT' : 'PURCHASE';
+        
+        // Usar upsert para criar ou atualizar
+        await prisma.creditBalance.upsert({
+          where: {
+            companyId_creditType_source_sourceId: {
+              companyId,
+              creditType: credit.type,
+              source,
+              sourceId: packageId,
+            },
+          },
+          create: {
             companyId,
             creditType: credit.type,
             amount: credit.amount,
-            source: adminId ? 'ADMIN_GRANT' : 'PURCHASE',
+            source,
             sourceId: packageId,
             duration: pkg.creditDuration,
             expiresAt,
+          },
+          update: {
+            amount: { increment: credit.amount },
+            expiresAt, // Atualizar data de expiração para a mais recente
+            updatedAt: new Date(),
           },
         });
       }
@@ -159,13 +174,16 @@ export class CreditService {
 
     for (const credit of creditsToAdd) {
       if (credit.amount > 0) {
+        // Para ADMIN_GRANT, usar UUID único para evitar conflitos
+        const uniqueSourceId = `${adminId}-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+        
         await prisma.creditBalance.create({
           data: {
             companyId,
             creditType: credit.type,
             amount: credit.amount,
             source: 'ADMIN_GRANT',
-            sourceId: adminId,
+            sourceId: uniqueSourceId,
             duration,
             expiresAt,
           },
@@ -180,6 +198,23 @@ export class CreditService {
    * Usar crédito numa vaga
    */
   static async useCredit(companyId: string, jobId: string, creditType: CreditType) {
+    // Verificar se já existe crédito ativo do mesmo tipo nesta vaga
+    const existingUsage = await prisma.creditUsage.findFirst({
+      where: {
+        companyId,
+        jobId,
+        creditType,
+        isActive: true,
+      },
+    });
+
+    if (existingUsage) {
+      throw new BadRequestError(
+        `Esta vaga já tem um crédito ${creditType} ativo`,
+        'CREDIT_ALREADY_APPLIED'
+      );
+    }
+
     // Buscar crédito disponível (priorizar os que expiram primeiro)
     const creditBalance = await prisma.creditBalance.findFirst({
       where: {

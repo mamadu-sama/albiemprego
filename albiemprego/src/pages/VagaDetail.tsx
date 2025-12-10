@@ -46,17 +46,17 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { jobApi } from "@/lib/api";
+import { jobApi, applicationApi } from "@/lib/api";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useNavigate } from "react-router-dom";
 
 export default function VagaDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { user } = useAuth();
+  const { user, saveReturnUrl } = useAuth();
+  const navigate = useNavigate();
   const [isSaved, setIsSaved] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
-  const [showApplyModal, setShowApplyModal] = useState(false);
-  const [isApplied, setIsApplied] = useState(false);
 
   const isAuthenticated = !!user;
   const userType = user?.type === "CANDIDATO" ? "candidato" : user?.type === "EMPRESA" ? "empresa" : null;
@@ -88,16 +88,76 @@ export default function VagaDetailPage() {
     retry: false, // Não retry se falhar (pode não ter candidato profile completo)
   });
 
+  // Verificar se pode candidatar-se (apenas para candidatos autenticados)
+  const { data: canApplyData } = useQuery({
+    queryKey: ["canApply", id],
+    queryFn: () => applicationApi.canApply(id!),
+    enabled: !!id && isAuthenticated && userType === "candidato",
+    retry: false,
+  });
+
+  // Verificar se já se candidatou
+  const { data: checkApplicationData } = useQuery({
+    queryKey: ["checkApplication", id],
+    queryFn: () => applicationApi.checkApplication(id!),
+    enabled: !!id && isAuthenticated && userType === "candidato",
+    retry: false,
+  });
+
   const matchScore = matchScoreData?.overall || null;
   const matchBreakdown = matchScoreData?.breakdown || null;
+  const hasApplied = checkApplicationData?.hasApplied || false;
+
+  const handleAuthRequired = () => {
+    // Salvar URL de retorno
+    saveReturnUrl(`/candidatar/${id}`);
+    navigate("/auth/login", {
+      state: { 
+        message: "Faça login ou crie uma conta para se candidatar a esta vaga",
+        returnUrl: `/candidatar/${id}`
+      },
+    });
+  };
 
   const handleApply = () => {
-    setIsApplied(true);
-    setShowApplyModal(false);
-    toast({
-      title: "Candidatura enviada!",
-      description: "A sua candidatura foi enviada com sucesso. Boa sorte!",
-    });
+    // Se não está logado, exigir autenticação
+    if (!isAuthenticated) {
+      handleAuthRequired();
+      return;
+    }
+
+    // Se não é candidato, mostrar erro
+    if (userType !== "candidato") {
+      toast({
+        title: "Apenas candidatos",
+        description: "Apenas candidatos podem candidatar-se a vagas",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Se já se candidatou
+    if (hasApplied) {
+      toast({
+        title: "Já candidatou",
+        description: "Já se candidatou a esta vaga anteriormente",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Se não pode candidatar-se (falta CV, perfil, etc)
+    if (canApplyData && !canApplyData.canApply) {
+      toast({
+        title: "Não pode candidatar-se",
+        description: canApplyData.reasons.join(". "),
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Redirecionar para página de candidatura
+    navigate(`/candidatar/${id}`);
   };
 
   const handleCopyLink = () => {
@@ -373,76 +433,41 @@ export default function VagaDetailPage() {
               {/* Apply Card */}
               <Card className="sticky top-24 border-border shadow-lg">
                 <CardContent className="p-6">
-                  {isApplied ? (
+                  {hasApplied ? (
                     <div className="text-center py-4">
                       <div className="w-16 h-16 bg-success/10 rounded-full flex items-center justify-center mx-auto mb-4">
                         <CheckCircle2 className="h-8 w-8 text-success" />
                       </div>
-                      <h3 className="font-semibold text-foreground mb-1">Candidatura Enviada</h3>
+                      <h3 className="font-semibold text-foreground mb-1">Já candidatou</h3>
                       <p className="text-sm text-muted-foreground">
-                        Enviada há poucos segundos
+                        Já se candidatou a esta vaga
                       </p>
+                      <Button asChild variant="outline" size="sm" className="mt-4">
+                        <Link to="/candidato/candidaturas">
+                          Ver minhas candidaturas
+                        </Link>
+                      </Button>
                     </div>
                   ) : (
                     <>
-                      <Dialog open={showApplyModal} onOpenChange={setShowApplyModal}>
-                        <DialogTrigger asChild>
-                          <Button size="lg" className="w-full mb-3">
-                            <Send className="h-4 w-4 mr-2" />
-                            Candidatar-me
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-[500px]">
-                          <DialogHeader>
-                            <DialogTitle>Candidatar-me a {jobData.title}</DialogTitle>
-                            <DialogDescription>
-                              {jobData.company} • {jobData.location}
-                            </DialogDescription>
-                          </DialogHeader>
-                          <div className="space-y-4 py-4">
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <label className="text-sm font-medium text-foreground">Nome</label>
-                                <Input placeholder="O seu nome" className="mt-1" />
-                              </div>
-                              <div>
-                                <label className="text-sm font-medium text-foreground">Apelido</label>
-                                <Input placeholder="O seu apelido" className="mt-1" />
-                              </div>
-                            </div>
-                            <div>
-                              <label className="text-sm font-medium text-foreground">Email</label>
-                              <Input type="email" placeholder="email@exemplo.com" className="mt-1" />
-                            </div>
-                            <div>
-                              <label className="text-sm font-medium text-foreground">Telefone</label>
-                              <Input type="tel" placeholder="+351 912 345 678" className="mt-1" />
-                            </div>
-                            <div>
-                              <label className="text-sm font-medium text-foreground">CV (PDF)</label>
-                              <Input type="file" accept=".pdf" className="mt-1" />
-                            </div>
-                            <div>
-                              <label className="text-sm font-medium text-foreground">Carta de Apresentação (opcional)</label>
-                              <Textarea placeholder="Escreva uma breve apresentação..." className="mt-1" rows={4} />
-                            </div>
-                            <div className="flex items-start gap-2">
-                              <Checkbox id="terms" />
-                              <label htmlFor="terms" className="text-sm text-muted-foreground">
-                                Aceito os termos de utilização e a política de privacidade
-                              </label>
-                            </div>
-                          </div>
-                          <div className="flex gap-3">
-                            <Button variant="outline" onClick={() => setShowApplyModal(false)} className="flex-1">
-                              Cancelar
-                            </Button>
-                            <Button onClick={handleApply} className="flex-1">
-                              Enviar Candidatura
-                            </Button>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
+                      <Button 
+                        size="lg" 
+                        className="w-full mb-3"
+                        onClick={handleApply}
+                        disabled={isAuthenticated && userType === "candidato" && canApplyData && !canApplyData.canApply}
+                      >
+                        <Send className="h-4 w-4 mr-2" />
+                        {!isAuthenticated ? "Login para Candidatar" : "Candidatar-me"}
+                      </Button>
+                      
+                      {/* Mostrar razões se não pode candidatar */}
+                      {isAuthenticated && userType === "candidato" && canApplyData && !canApplyData.canApply && (
+                        <div className="text-sm text-destructive space-y-1 mb-3">
+                          {canApplyData.reasons.map((reason, idx) => (
+                            <p key={idx}>• {reason}</p>
+                          ))}
+                        </div>
+                      )}
                     </>
                   )}
 

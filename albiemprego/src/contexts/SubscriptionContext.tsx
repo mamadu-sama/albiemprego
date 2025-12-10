@@ -188,9 +188,9 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         startDate: subscriptionData.subscription.startDate,
         endDate: subscriptionData.subscription.endDate,
         credits: {
-          featured: subscriptionData.credits.summary.featured,
-          homepage: subscriptionData.credits.summary.homepage,
-          urgent: subscriptionData.credits.summary.urgent,
+          featured: subscriptionData.credits?.featured || 0,
+          homepage: subscriptionData.credits?.homepage || 0,
+          urgent: subscriptionData.credits?.urgent || 0,
         },
       }
     : null;

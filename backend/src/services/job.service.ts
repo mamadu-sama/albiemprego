@@ -443,6 +443,11 @@ export class JobService {
             logo: true,
           },
         },
+        creditUsages: {
+          include: {
+            balance: true,
+          },
+        },
         _count: {
           select: {
             applications: true,
@@ -645,6 +650,11 @@ export class JobService {
             sector: true,
           },
         },
+        creditUsages: {
+          include: {
+            balance: true,
+          },
+        },
         _count: {
           select: {
             applications: true,
@@ -707,6 +717,148 @@ export class JobService {
     logger.info(`Vagas recomendadas para candidato ${userId}: ${recommendedJobs.length}`);
 
     return recommendedJobs;
+  }
+
+  /**
+   * Listar vagas com destaque na homepage
+   */
+  static async getFeaturedHomepageJobs(limit: number = 6) {
+    const jobs = await prisma.job.findMany({
+      where: {
+        status: "ACTIVE",
+        creditUsages: {
+          some: {
+            creditType: "HOMEPAGE",
+            isActive: true,
+          },
+        },
+      },
+      include: {
+        company: {
+          select: {
+            id: true,
+            name: true,
+            logo: true,
+            sector: true,
+          },
+        },
+        creditUsages: {
+          where: {
+            isActive: true,
+          },
+          include: {
+            balance: true,
+          },
+        },
+        _count: {
+          select: {
+            applications: true,
+          },
+        },
+      },
+      orderBy: [
+        { viewsCount: 'desc' },
+        { createdAt: 'desc' },
+      ],
+      take: limit,
+    });
+
+    logger.info(`Found ${jobs.length} homepage featured jobs`);
+    return jobs;
+  }
+
+  /**
+   * Listar vagas com destaque na listagem (featured)
+   */
+  static async getFeaturedJobs(limit: number = 20) {
+    const jobs = await prisma.job.findMany({
+      where: {
+        status: "ACTIVE",
+        creditUsages: {
+          some: {
+            creditType: "FEATURED",
+            isActive: true,
+          },
+        },
+      },
+      include: {
+        company: {
+          select: {
+            id: true,
+            name: true,
+            logo: true,
+            sector: true,
+          },
+        },
+        creditUsages: {
+          where: {
+            isActive: true,
+          },
+          include: {
+            balance: true,
+          },
+        },
+        _count: {
+          select: {
+            applications: true,
+          },
+        },
+      },
+      orderBy: [
+        { createdAt: 'desc' },
+      ],
+      take: limit,
+    });
+
+    logger.info(`Found ${jobs.length} featured jobs`);
+    return jobs;
+  }
+
+  /**
+   * Listar vagas urgentes
+   */
+  static async getUrgentJobs(limit: number = 10) {
+    const jobs = await prisma.job.findMany({
+      where: {
+        status: "ACTIVE",
+        creditUsages: {
+          some: {
+            creditType: "URGENT",
+            isActive: true,
+          },
+        },
+      },
+      include: {
+        company: {
+          select: {
+            id: true,
+            name: true,
+            logo: true,
+            sector: true,
+          },
+        },
+        creditUsages: {
+          where: {
+            isActive: true,
+          },
+          include: {
+            balance: true,
+          },
+        },
+        _count: {
+          select: {
+            applications: true,
+          },
+        },
+      },
+      orderBy: [
+        { createdAt: 'desc' },
+      ],
+      take: limit,
+    });
+
+    logger.info(`Found ${jobs.length} urgent jobs`);
+    return jobs;
   }
 }
 

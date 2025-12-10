@@ -80,6 +80,26 @@ export interface ApiError {
   timestamp: string;
 }
 
+export interface Experience {
+  id: string;
+  company: string;
+  position: string;
+  startDate: string;
+  endDate?: string;
+  current: boolean;
+  description?: string;
+}
+
+export interface Education {
+  id: string;
+  institution: string;
+  degree: string;
+  field: string;
+  startDate: string;
+  endDate?: string;
+  current: boolean;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -99,6 +119,8 @@ export interface User {
     experienceYears?: number;
     currentPosition?: string;
     cvUrl?: string;
+    experiences?: Experience[];
+    educations?: Education[];
   };
   company?: {
     id: string;
@@ -676,6 +698,21 @@ export const jobApi = {
     const response = await api.get(`/jobs/recommended?limit=${limit}`);
     return response.data;
   },
+
+  async getFeaturedHomepageJobs(limit: number = 6): Promise<Job[]> {
+    const response = await api.get(`/jobs/featured/homepage?limit=${limit}`);
+    return response.data;
+  },
+
+  async getFeaturedJobs(limit: number = 20): Promise<Job[]> {
+    const response = await api.get(`/jobs/featured/listing?limit=${limit}`);
+    return response.data;
+  },
+
+  async getUrgentJobs(limit: number = 10): Promise<Job[]> {
+    const response = await api.get(`/jobs/urgent?limit=${limit}`);
+    return response.data;
+  },
 };
 
 // ============================================
@@ -866,13 +903,11 @@ export const subscriptionApi = {
 
   async getCurrentSubscription(): Promise<{
     subscription: any;
+    plan: any;
     credits: {
-      summary: {
-        featured: number;
-        homepage: number;
-        urgent: number;
-      };
-      details: any[];
+      featured: number;
+      homepage: number;
+      urgent: number;
     };
     unreadNotifications: number;
   }> {
@@ -903,6 +938,16 @@ export const subscriptionApi = {
 export const jobCreditApi = {
   async applyCredit(jobId: string, creditType: "FEATURED" | "HOMEPAGE" | "URGENT"): Promise<any> {
     const response = await api.post(`/jobs/${jobId}/apply-credit`, { creditType });
+    return response.data;
+  },
+  
+  async applyCreditToJob(jobId: string, creditType: string, duration: number): Promise<any> {
+    const response = await api.post(`/jobs/${jobId}/apply-credit`, { creditType, duration });
+    return response.data;
+  },
+  
+  async removeCreditFromJob(usageId: string): Promise<any> {
+    const response = await api.delete(`/jobs/credit-usage/${usageId}`);
     return response.data;
   },
 
@@ -1002,6 +1047,103 @@ export const adminRequestApi = {
   }> {
     const response = await api.get("/admin/requests/stats");
     return response.data.data;
+  },
+};
+
+// ============================================
+// CANDIDATURA A VAGAS (CANDIDATO)
+// ============================================
+
+export interface ApplicationData {
+  coverLetter?: string;
+  portfolio?: string;
+  availability?: string;
+  expectedSalary?: number;
+}
+
+export const applicationApi = {
+  async canApply(jobId: string): Promise<{
+    canApply: boolean;
+    reasons: string[];
+  }> {
+    const response = await api.get(`/applications/jobs/${jobId}/can-apply`);
+    return response.data;
+  },
+
+  async checkApplication(jobId: string): Promise<{
+    hasApplied: boolean;
+    applicationId?: string;
+  }> {
+    const response = await api.get(`/applications/jobs/${jobId}/check`);
+    return response.data;
+  },
+
+  async apply(jobId: string, data: ApplicationData): Promise<any> {
+    const response = await api.post(`/applications/jobs/${jobId}/apply`, data);
+    return response.data;
+  },
+
+  async getMyApplications(status?: string): Promise<any[]> {
+    const response = await api.get("/applications/my", {
+      params: { status },
+    });
+    return response.data;
+  },
+
+  async getApplicationDetails(applicationId: string): Promise<any> {
+    const response = await api.get(`/applications/${applicationId}`);
+    return response.data;
+  },
+
+  async withdrawApplication(applicationId: string): Promise<any> {
+    const response = await api.delete(`/applications/${applicationId}`);
+    return response.data;
+  },
+};
+
+// ============================================
+// GESTÃO DE CANDIDATURAS (EMPRESA)
+// ============================================
+
+export const companyApplicationApi = {
+  async getAll(filters?: { jobId?: string; status?: string }): Promise<any[]> {
+    const response = await api.get("/company/applications", {
+      params: filters,
+    });
+    return response.data;
+  },
+
+  async getStats(): Promise<{
+    total: number;
+    byStatus: Record<string, number>;
+  }> {
+    const response = await api.get("/company/applications/stats");
+    return response.data;
+  },
+
+  async getDetails(applicationId: string): Promise<any> {
+    const response = await api.get(`/company/applications/${applicationId}`);
+    return response.data;
+  },
+
+  async updateStatus(
+    applicationId: string,
+    status: string,
+    note?: string
+  ): Promise<any> {
+    const response = await api.patch(
+      `/company/applications/${applicationId}/status`,
+      { status, note }
+    );
+    return response.data;
+  },
+
+  async updateNotes(applicationId: string, internalNotes: string): Promise<any> {
+    const response = await api.patch(
+      `/company/applications/${applicationId}/notes`,
+      { internalNotes }
+    );
+    return response.data;
   },
 };
 

@@ -62,15 +62,13 @@ export class CompanySubscriptionController {
 
       const companyId = company.id;
 
-      const subscription =
+      const data =
         await CompanySubscriptionService.getCurrentSubscription(companyId);
-      const credits = await CreditService.getCompanyCredits(companyId);
       const unreadNotifications =
         await CompanyNotificationService.getUnreadCount(companyId);
 
       return res.status(200).json({
-        subscription,
-        credits,
+        ...data,
         unreadNotifications,
       });
     } catch (error) {
