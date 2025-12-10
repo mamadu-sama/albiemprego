@@ -6,6 +6,11 @@ import { logger } from "./config/logger";
 import "./config/database";
 import "./config/redis";
 
+// Inicializar cron jobs
+import "./cron/subscription-renewal.cron";
+import "./cron/credit-expiry.cron";
+import "./cron/credit-notifications.cron";
+
 const PORT = parseInt(process.env.PORT || "3001");
 
 // Iniciar servidor

@@ -9,6 +9,7 @@ import {
   listJobsValidation,
 } from "../validators/job.validator";
 import { searchJobsValidation } from "../validators/job-search.validator";
+import { applyCreditValidation } from "../validators/subscription.validator";
 import { searchLimiter } from "../middlewares/rateLimit";
 
 const router = Router();
@@ -118,6 +119,18 @@ router.patch("/:id/reactivate", getJobByIdValidation, JobController.reactivateJo
  * Fechar vaga
  */
 router.patch("/:id/close", getJobByIdValidation, JobController.closeJob);
+
+/**
+ * POST /jobs/:id/apply-credit
+ * Aplicar crédito numa vaga (Featured, Homepage ou Urgent)
+ */
+router.post("/:id/apply-credit", authenticateToken, authorize("EMPRESA"), applyCreditValidation, JobController.applyCredit);
+
+/**
+ * GET /jobs/:id/analytics
+ * Obter analytics de uma vaga (uso de créditos)
+ */
+router.get("/:id/analytics", authenticateToken, authorize("EMPRESA"), getJobByIdValidation, JobController.getJobAnalytics);
 
 export default router;
 

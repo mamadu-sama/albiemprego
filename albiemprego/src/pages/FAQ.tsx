@@ -123,24 +123,68 @@ const faqCategories = [
   },
   {
     id: "pagamentos",
-    title: "Pagamentos e Planos",
+    title: "Planos, Créditos e Pagamentos",
     icon: CreditCard,
     questions: [
       {
-        question: "Quais são os métodos de pagamento aceites?",
-        answer: "Aceitamos cartões de crédito/débito (Visa, Mastercard), transferência bancária, MBWay e PayPal. Todos os pagamentos são processados de forma segura."
+        question: "🎯 Que planos de assinatura estão disponíveis?",
+        answer: "Oferecemos 3 planos cuidadosamente concebidos para empresas em Castelo Branco:\n\nPlano Básico (GRATUITO): Perfeito para pequenas empresas ou startups. Inclui até 5 vagas ativas, 1 crédito de destaque por mês, visualização de candidaturas e perfil básico. Sem custos mensais!\n\nPlano Profissional (€35/mês) - MAIS POPULAR: Ideal para empresas em crescimento. Oferece 20 vagas ativas, 3 créditos Featured, 1 crédito Homepage e 1 crédito Urgent por mês. Inclui perfil completo da empresa e suporte prioritário. Melhor relação qualidade/preço!\n\nPlano Premium (€75/mês): Para máxima visibilidade! Vagas ilimitadas, 5 créditos Featured (14 dias), 3 créditos Homepage (14 dias) e 3 créditos Urgent (14 dias) mensais. Analytics avançado, perfil premium destacado e suporte 24/7.\n\nConsulte todos os detalhes na página de Planos: /empresa/planos"
       },
       {
-        question: "Posso cancelar a minha subscrição?",
-        answer: "Sim, pode cancelar a qualquer momento nas configurações da conta. A subscrição permanecerá ativa até ao fim do período pago."
+        question: "💎 O que são créditos e como funcionam?",
+        answer: "Os créditos são a moeda de visibilidade do AlbiEmprego! Permitem destacar as suas vagas para alcançar mais candidatos qualificados.\n\nExistem 3 tipos de créditos:\n\n• Créditos Featured (Destaque): A sua vaga aparece no topo da listagem com um badge especial, aumentando drasticamente a visibilidade. Perfeito para atrair atenção imediata!\n\n• Créditos Homepage: A sua vaga é promovida na página inicial do AlbiEmprego, onde recebe milhares de visualizações diárias. Exposição máxima garantida!\n\n• Créditos Urgent (Urgente): Adiciona um badge URGENTE vermelho à sua vaga, criando um sentido de urgência. Ideal para contratações rápidas!\n\nDuração dos créditos: Os créditos dos planos duram 7 dias (Premium: 14 dias). Os créditos avulsos podem ter validade de 7, 14 ou 30 dias.\n\nExemplo prático: usar 1 crédito Featured = vaga em destaque durante 7 dias completos!"
       },
       {
-        question: "Emitem fatura?",
-        answer: "Sim, emitimos fatura para todos os pagamentos. As faturas são enviadas automaticamente por email e ficam disponíveis no histórico de pagamentos do dashboard."
+        question: "📦 Posso comprar créditos avulsos sem mudar de plano?",
+        answer: "Sim! Além dos créditos mensais incluídos no seu plano, oferecemos pacotes de créditos avulsos:\n\nStarter (€15): 3 créditos Featured (7 dias) - Ideal para começar\n\nLocal Boost (€35): 5 Featured + 2 Homepage (7 dias) - Aumente sua visibilidade local\n\nCompleto (€60): 8 Featured + 4 Homepage + 2 Urgent (7 dias) - Pacote completo\n\nCampanha (€95): 15 Featured + 5 Homepage + 3 Urgent (14 dias) - Máxima visibilidade!\n\nOs créditos avulsos expiram em 90 dias após a compra. Receberá notificações quando estiverem próximos de expirar.\n\nDica: Combine os créditos do plano mensal com pacotes avulsos durante períodos de recrutamento intensivo!"
       },
       {
-        question: "Existe período de teste gratuito?",
-        answer: "Sim, oferecemos 14 dias de teste gratuito nos planos premium para empresas. Pode experimentar todas as funcionalidades antes de decidir subscrever."
+        question: "🚀 Como usar os créditos nas minhas vagas?",
+        answer: "Usar créditos é simples! Siga estes passos:\n\n1. Aceda ao seu dashboard - Entre na área da empresa\n2. Escolha a vaga - Vá para As Minhas Vagas\n3. Aplique o crédito - Clique em Aplicar Crédito e escolha o tipo\n4. Confirme - O crédito é ativado instantaneamente!\n\nPode aplicar múltiplos tipos na mesma vaga. Exemplo: Featured + Homepage + Urgent = tripla exposição!\n\nMonitorização em tempo real: Acompanhe visualizações, cliques e candidaturas através do analytics. ROI transparente!\n\nNotificações inteligentes:\n• Alertas quando restarem poucos créditos\n• Aviso quando próximos de expirar\n• Lembrete de renovação mensal\n\nNunca perca uma oportunidade de destaque!"
+      },
+      {
+        question: "💰 Qual é a diferença entre créditos do plano e créditos avulsos?",
+        answer: "Créditos do Plano (Mensais):\n• Renovam automaticamente todo mês\n• Não expiram enquanto mantiver o plano\n• Incluídos na mensalidade\n• Duração: 7 dias (Premium: 14 dias)\n• Limitados à quantidade do plano\n\nCréditos Avulsos (Compra única):\n• Compra quando precisar\n• Flexibilidade total de uso\n• Durações: 7, 14 ou 30 dias\n• Perfeitos para picos de recrutamento\n• Expiram em 90 dias se não usados\n\nEstratégia recomendada: Use créditos mensais regularmente. Compre avulsos para campanhas sazonais, posições difíceis ou múltiplas vagas simultâneas."
+      },
+      {
+        question: "📊 Como posso ver o ROI dos créditos investidos?",
+        answer: "O AlbiEmprego oferece analytics detalhado para cada crédito usado:\n\nMétricas por vaga:\n• Visualizações - Quantas pessoas viram\n• Cliques - Quantos abriram detalhes\n• Candidaturas - Recebidas durante destaque\n\nTaxas automáticas:\n• Taxa de Clique (CTR)\n• Taxa de Candidatura\n• Taxa de Conversão\n\nAnálise por tipo: Veja qual tipo (Featured/Homepage/Urgent) gera melhores resultados.\n\nNo Plano Premium:\n• Comparação entre vagas\n• Histórico completo\n• Recomendações inteligentes\n• Benchmark do sector\n\nAcesso: Dashboard > As Minhas Vagas > Analytics"
+      },
+      {
+        question: "🔄 O que acontece quando um crédito expira?",
+        answer: "Durante a validade:\n• Vaga permanece destacada\n• Métricas registadas\n• Máxima visibilidade\n\nQuando expira:\n• Vaga continua publicada (não é removida!)\n• Candidaturas mantidas\n• Histórico guardado\n• Destaque visual removido\n• Volta para ordem normal\n\nNotificações:\n• 7 dias antes - Alerta de expiração\n• 3 dias antes - Lembrete\n• No dia - Notificação final\n\nCréditos não usados:\n• Do plano: Renovam mensalmente\n• Avulsos: Expiram em 90 dias\n\nDica: Configure alertas para reativar destaques quando créditos renovarem!"
+      },
+      {
+        question: "🎁 Porque o Plano Básico é gratuito? Há alguma limitação oculta?",
+        answer: "Transparência total - SEM truques!\n\nO Plano Básico é GRATUITO porque queremos apoiar pequenas empresas locais e provar o valor da plataforma.\n\nIncluído (€0/mês):\n• Até 5 vagas ativas\n• 1 crédito Featured por mês\n• Acesso à base de candidatos\n• Gestão ilimitada de candidaturas\n• Perfil básico da empresa\n• Suporte por email\n• Sem anúncios\n• ZERO compromissos\n\nLimitações claras:\n• Máximo 5 vagas ativas\n• 1 crédito Featured/mês\n• Sem créditos Homepage ou Urgent\n• Perfil simples\n• Analytics básico\n\n99% das pequenas empresas locais acham suficiente! Comece grátis: /empresa/planos"
+      },
+      {
+        question: "⚡ Porque escolher o Plano Profissional (€35/mês)?",
+        answer: "O Plano Profissional é o MAIS ESCOLHIDO pelas empresas em Castelo Branco:\n\nROI imbatível:\n• Apenas €1,16 por dia\n• 20 vagas ativas (vs 5 no Básico)\n• Encontrar 1 bom colaborador = investimento recuperado\n\nCréditos Mensais:\n• 3 créditos Featured (vs 1 no Básico)\n• 1 crédito Homepage (exposição na página inicial)\n• 1 crédito Urgent (badge de urgência)\n\nBenefícios Extra:\n• Perfil completo da empresa\n• Suporte prioritário (resposta em 2 horas)\n• Analytics detalhado\n• Galeria de fotos e vídeos\n\nIdeal para:\n• Empresas com 10-50 colaboradores\n• 5-15 vagas por ano\n• Necessidade de destaque consistente\n• Crescimento acelerado\n\nCaso real: Empresa local aumentou candidaturas em 340% no primeiro mês!\n\nExperimente 14 dias grátis - cancele quando quiser."
+      },
+      {
+        question: "👑 Para quem é o Plano Premium (€75/mês)?",
+        answer: "Nível executivo - para empresas sérias sobre recrutamento:\n\nVagas Ilimitadas:\n• Publique quantas precisar\n• Sem limites de vagas ativas\n• Múltiplas equipas e localizações\n\nCréditos de Longa Duração (14 dias):\n• 5 Featured mensais\n• 3 Homepage mensais\n• 3 Urgent mensais\n• Dobro da duração vs outros planos!\n\nAnalytics Avançado:\n• ROI detalhado por crédito\n• Funil completo de conversão\n• Benchmark com concorrentes\n• Previsões inteligentes\n• Reports automáticos\n\nSuporte 24/7:\n• Linha direta prioritária\n• Chat ao vivo\n• Email com resposta em 1h\n• Gestor de conta exclusivo\n• Consultoria mensal\n\nIdeal para:\n• Empresas 50+ colaboradores\n• Recrutamento contínuo\n• 10+ vagas simultâneas\n• Posições especializadas\n\nComparação custos:\n• Recrutador externo: €3.000-5.000/contratação\n• Anúncio jornal: €500/semana\n• Premium AlbiEmprego: €75/mês\n\nResultado típico: Redução de 60% no tempo e 80% nos custos!"
+      },
+      {
+        question: "🔐 Como funcionam os pagamentos? É seguro?",
+        answer: "Segurança e transparência garantidas:\n\nMétodos Aceites:\n• Cartões (Visa, Mastercard, Amex)\n• MBWay\n• Transferência Bancária\n• PayPal\n• Multibanco\n\nSegurança:\n• Encriptação SSL 256-bit\n• Processamento via Stripe\n• Conformidade PCI-DSS\n• Nunca armazenamos dados de cartão\n• 3D Secure obrigatório\n\nFaturação:\n• Fatura PDF instantânea\n• NIF incluído automaticamente\n• Histórico no dashboard\n• Conformidade fiscal portuguesa\n\nCancelamento:\n• A qualquer momento\n• Sem períodos de fidelização\n• Sem taxas extras\n• Acesso até fim do período pago\n\nGarantia: Reembolso total nos primeiros 14 dias se não estiver satisfeito!"
+      },
+      {
+        question: "📞 Como posso fazer upgrade, downgrade ou cancelar?",
+        answer: "Flexibilidade total:\n\nFAZER UPGRADE:\n1. Dashboard → Planos e Créditos\n2. Escolha novo plano\n3. Pagamento processado\n4. Créditos creditados imediatamente\n5. Limite atualizado na hora\n\nBónus: Crédito proporcional do tempo restante!\n\nFAZER DOWNGRADE:\n1. Dashboard → Planos → Alterar\n2. Selecione plano inferior\n3. Confirme mudança\n4. Aplicado no próximo ciclo\n5. Mantém plano atual até renovação\n\nCANCELAR:\n1. Dashboard → Definições\n2. Cancelar Assinatura\n3. Sem taxas\n4. Mantém acesso até fim do período\n\nContacto direto: planos@albiemprego.pt"
+      },
+      {
+        question: "🎓 Existem descontos ou promoções especiais?",
+        answer: "Sim! Valorizamos fidelidade e apoiamos a economia local:\n\nDesconto Anual (20% OFF):\n• Profissional: €336/ano (poupa €84)\n• Premium: €720/ano (poupa €180)\n• 2 meses grátis!\n\nEmpresas Locais de Castelo Branco:\n• 15% desconto no primeiro ano\n• NIF registado em CB\n• Apoio à economia regional\n\nStartups e Incubadoras:\n• 6 meses Profissional GRÁTIS\n• 25% desconto permanente depois\n• Certificação necessária\n\nOrganizações Sem Fins Lucrativos:\n• 50% desconto em todos os planos\n• IPSS, associações, cooperativas\n• Nossa contribuição social\n\nPrograma de Referências:\n• Indique empresa → ambos ganham 1 mês grátis\n• Sem limite de referências\n\nCódigos Promocionais:\n• CBLOCAL15 - 15% empresas locais\n• ANUAL20 - 20% planos anuais\n• STARTUP50 - 50% startups\n\nContacto: descontos@albiemprego.pt"
+      },
+      {
+        question: "📱 Posso testar antes de comprar?",
+        answer: "Sim! Experimente sem compromisso:\n\nTeste Gratuito:\n• Profissional: 14 dias GRÁTIS\n• Premium: 7 dias GRÁTIS\n• Sem cartão necessário\n• Sem renovação automática\n\nDurante o teste pode:\n• Publicar vagas reais\n• Usar todos os créditos\n• Receber candidaturas\n• Testar analytics completo\n• Contactar suporte\n\nApós o teste:\n• Decida se continuar\n• Dados mantidos\n• Volte a Básico grátis se preferir\n• Zero compromisso\n\nPlano Básico = Teste Permanente:\n• Gratuito para sempre\n• Experimente à vontade\n• Upgrade quando quiser\n\nGarantia 100%:\n• Reembolso total em 14 dias\n• Sem perguntas\n\nAgende demo: demo@albiemprego.pt"
+      },
+      {
+        question: "🌟 Qual plano devo escolher para a minha empresa?",
+        answer: "Guia rápido de decisão:\n\nEscolha BÁSICO (€0) se:\n• 1-10 colaboradores\n• 1-3 vagas por trimestre\n• Orçamento limitado\n• Primeira vez na plataforma\n\nEscolha PROFISSIONAL (€35) se:\n• 10-50 colaboradores\n• 5-15 vagas por ano\n• Múltiplos departamentos\n• Contratações regulares\n• Quer construir marca\n\nEscolha PREMIUM (€75) se:\n• 50+ colaboradores\n• Contratação contínua\n• 10+ vagas simultâneas\n• Múltiplas localizações\n• Analytics críticos\n\nExemplos Reais:\n• Restaurante local (8 funcionários) → Básico\n• Loja retail (20 funcionários) → Profissional\n• Indústria (80 funcionários) → Premium\n\nCalculadora: Se contratação custa €3.000+\n• 1 contratação/ano → Básico\n• 2-6 contratações/ano → Profissional\n• 7+ contratações/ano → Premium\n\nDúvidas? ajuda@albiemprego.pt\n\nRegra de ouro: Comece com Básico, faça upgrade quando sentir necessidade!"
       }
     ]
   }
@@ -257,8 +301,10 @@ export default function FAQ() {
                             <AccordionTrigger className="text-left">
                               {item.question}
                             </AccordionTrigger>
-                            <AccordionContent className="text-muted-foreground">
-                              {item.answer}
+                            <AccordionContent className="text-muted-foreground prose prose-sm max-w-none">
+                              <div className="space-y-3 whitespace-pre-line">
+                                {item.answer}
+                              </div>
                             </AccordionContent>
                           </AccordionItem>
                         ))}

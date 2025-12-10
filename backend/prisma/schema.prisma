@@ -82,6 +82,49 @@ enum MessageStatus {
   READ
 }
 
+// Subscription & Credits Enums
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+  PENDING
+}
+
+enum CreditType {
+  FEATURED    // Destaque na listagem
+  HOMEPAGE    // Destaque na homepage
+  URGENT      // Badge urgente
+}
+
+enum CreditDuration {
+  DAYS_7      // Padrão
+  DAYS_14     // Premium
+  DAYS_30     // Extended
+}
+
+enum TransactionType {
+  SUBSCRIPTION_PURCHASE
+  SUBSCRIPTION_RENEWAL
+  CREDIT_PURCHASE
+  ADMIN_CREDIT_GRANT
+  ADMIN_SUBSCRIPTION_GRANT
+  REFUND
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
 // ============================================
 // MODELS
 // ============================================
@@ -162,8 +205,16 @@ model Company {
   rejectedAt      DateTime?
   rejectionReason String?
 
+  // Controle de vagas (planos)
+  activeJobsCount Int @default(0)  // Contador de vagas ativas
+  maxActiveJobs   Int @default(5)  // Limite do plano atual
+
   // Relações
   jobs Job[]
+  subscriptions   CompanySubscription[]
+  creditBalances  CreditBalance[]
+  transactions    Transaction[]
+  notifications   CompanyNotification[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -272,6 +323,7 @@ model Job {
   // Relações
   applications Application[]
   savedBy      SavedJob[]
+  creditUsages CreditUsage[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -388,5 +440,220 @@ model MaintenanceMode {
   updatedAt        DateTime  @updatedAt
 
   @@map("maintenance_mode")
+}
+
+// ============================================
+// SUBSCRIPTION & CREDITS MODELS
+// ============================================
+
+model SubscriptionPlan {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  price       Decimal  @db.Decimal(10, 2)
+  currency    String   @default("EUR")
+  
+  // Limites
+  maxJobs     Int      @default(5) // -1 = ilimitado
+  
+  // Créditos mensais incluídos
+  featuredCreditsMonthly  Int @default(0)
+  homepageCreditsMonthly  Int @default(0)
+  urgentCreditsMonthly    Int @default(0)
+  
+  // Duração padrão dos créditos do plano
+  creditDuration CreditDuration @default(DAYS_7)
+  
+  // Features (JSON array)
+  features    Json
+  
+  // Configuração
+  isActive    Boolean  @default(true)
+  isPopular   Boolean  @default(false)
+  displayOrder Int     @default(0)
+  
+  // Stripe
+  stripePriceId String? @unique
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  subscriptions CompanySubscription[]
+  
+  @@map("subscription_plans")
+}
+
+model CreditPackage {
+  id          String     @id @default(uuid())
+  name        String
+  description String
+  price       Decimal    @db.Decimal(10, 2)
+  currency    String     @default("EUR")
+  
+  // Créditos fornecidos
+  featuredCredits Int @default(0)
+  homepageCredits Int @default(0)
+  urgentCredits   Int @default(0)
+  
+  // Duração dos créditos deste pacote
+  creditDuration CreditDuration @default(DAYS_7)
+  
+  // Configuração
+  isActive    Boolean @default(true)
+  displayOrder Int    @default(0)
+  
+  stripePriceId String? @unique
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  transactions Transaction[]
+  
+  @@map("credit_packages")
+}
+
+model CompanySubscription {
+  id         String             @id @default(uuid())
+  companyId  String
+  company    Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  planId     String
+  plan       SubscriptionPlan   @relation(fields: [planId], references: [id])
+  
+  status     SubscriptionStatus @default(ACTIVE)
+  
+  startDate  DateTime
+  endDate    DateTime
+  
+  cancelledAt DateTime?
+  cancelReason String?
+  
+  stripeSubscriptionId String? @unique
+  
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  @@index([companyId, status])
+  @@index([endDate])
+  @@map("company_subscriptions")
+}
+
+model CreditBalance {
+  id         String     @id @default(uuid())
+  companyId  String
+  company    Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  creditType CreditType
+  amount     Int        @default(0)
+  
+  // Rastreamento origem
+  source     String     // "PLAN_MONTHLY", "PURCHASE", "ADMIN_GRANT"
+  sourceId   String?
+  
+  // Duração e expiração
+  duration   CreditDuration @default(DAYS_7)
+  expiresAt  DateTime?  // NULL para créditos do plano
+  
+  // Controle de notificações
+  lowCreditNotified Boolean @default(false)
+  expiryNotified    Boolean @default(false)
+  
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  
+  usages     CreditUsage[]
+  
+  @@unique([companyId, creditType, source, sourceId])
+  @@index([companyId, creditType])
+  @@index([expiresAt])
+  @@map("credit_balances")
+}
+
+model CreditUsage {
+  id         String     @id @default(uuid())
+  companyId  String
+  jobId      String
+  job        Job        @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  
+  balanceId  String     // Rastrear origem do crédito
+  balance    CreditBalance @relation(fields: [balanceId], references: [id])
+  
+  creditType CreditType
+  duration   CreditDuration
+  
+  // Período de ativação
+  startDate  DateTime
+  endDate    DateTime
+  
+  isActive   Boolean    @default(true)
+  
+  // Analytics ROI
+  views      Int        @default(0)
+  clicks     Int        @default(0)
+  applications Int      @default(0)
+  
+  createdAt  DateTime   @default(now())
+  
+  @@index([jobId, creditType, isActive])
+  @@index([endDate])
+  @@index([balanceId])
+  @@map("credit_usages")
+}
+
+model Transaction {
+  id          String            @id @default(uuid())
+  companyId   String
+  company     Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  type        TransactionType
+  status      TransactionStatus @default(PENDING)
+  
+  amount      Decimal           @db.Decimal(10, 2)
+  currency    String            @default("EUR")
+  description String
+  
+  planId      String?
+  packageId   String?
+  package     CreditPackage?    @relation(fields: [packageId], references: [id])
+  
+  adminId     String?
+  adminNotes  String?
+  
+  stripePaymentIntentId String? @unique
+  stripeInvoiceId       String?
+  
+  metadata    Json?
+  
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  
+  @@index([companyId, status])
+  @@index([createdAt])
+  @@map("transactions")
+}
+
+model CompanyNotification {
+  id         String               @id @default(uuid())
+  companyId  String
+  company    Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  type       String               // "CREDIT_LOW", "CREDIT_EXPIRING", "RENEWAL_UPCOMING", "LIMIT_REACHED"
+  priority   NotificationPriority @default(NORMAL)
+  
+  title      String
+  message    String
+  
+  // Contexto
+  creditType CreditType?
+  jobId      String?
+  
+  read       Boolean   @default(false)
+  readAt     DateTime?
+  
+  createdAt  DateTime  @default(now())
+  
+  @@index([companyId, read])
+  @@index([createdAt])
+  @@map("company_notifications")
 }
 

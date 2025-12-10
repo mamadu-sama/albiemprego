@@ -230,7 +230,7 @@ export default function VagaDetailPage() {
                     {jobData.company?.logo ? (
                       <img src={jobData.company.logo} alt={jobData.company.name} className="w-full h-full object-cover rounded-xl" />
                     ) : (
-                      <Building2 className="w-8 h-8 md:w-10 md:h-10 text-muted-foreground" />
+                    <Building2 className="w-8 h-8 md:w-10 md:h-10 text-muted-foreground" />
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -246,10 +246,10 @@ export default function VagaDetailPage() {
                         {jobData.location}
                       </span>
                       {salaryText && (
-                        <span className="flex items-center gap-1">
-                          <Euro className="h-4 w-4" />
+                      <span className="flex items-center gap-1">
+                        <Euro className="h-4 w-4" />
                           {salaryText}
-                        </span>
+                      </span>
                       )}
                       <span className="flex items-center gap-1">
                         <Clock className="h-4 w-4" />
@@ -300,8 +300,8 @@ export default function VagaDetailPage() {
 
               {/* Requirements */}
               {jobData.requirements && jobData.requirements.length > 0 && (
-                <div className="bg-card rounded-xl border border-border p-6 md:p-8">
-                  <h2 className="text-xl font-semibold text-foreground mb-6">Requisitos</h2>
+              <div className="bg-card rounded-xl border border-border p-6 md:p-8">
+                <h2 className="text-xl font-semibold text-foreground mb-6">Requisitos</h2>
                   <ul className="space-y-3">
                     {jobData.requirements.map((item, i) => (
                       <li key={i} className="flex gap-3">
@@ -315,31 +315,31 @@ export default function VagaDetailPage() {
 
               {/* Skills */}
               {jobData.skills && jobData.skills.length > 0 && (
-                <div className="bg-card rounded-xl border border-border p-6 md:p-8">
-                  <h2 className="text-xl font-semibold text-foreground mb-4">Competências</h2>
-                  <div className="flex flex-wrap gap-2">
-                    {jobData.skills.map((skill) => (
-                      <Badge key={skill} variant="outline" className="text-sm py-1 px-3">
-                        {skill}
-                      </Badge>
-                    ))}
-                  </div>
+              <div className="bg-card rounded-xl border border-border p-6 md:p-8">
+                <h2 className="text-xl font-semibold text-foreground mb-4">Competências</h2>
+                <div className="flex flex-wrap gap-2">
+                  {jobData.skills.map((skill) => (
+                    <Badge key={skill} variant="outline" className="text-sm py-1 px-3">
+                      {skill}
+                    </Badge>
+                  ))}
                 </div>
+              </div>
               )}
 
               {/* Benefits */}
               {jobData.benefits && jobData.benefits.length > 0 && (
-                <div className="bg-card rounded-xl border border-border p-6 md:p-8">
-                  <h2 className="text-xl font-semibold text-foreground mb-4">O Que Oferecemos</h2>
-                  <ul className="grid md:grid-cols-2 gap-3">
-                    {jobData.benefits.map((item, i) => (
-                      <li key={i} className="flex gap-3">
-                        <CheckCircle2 className="h-5 w-5 text-secondary flex-shrink-0 mt-0.5" />
-                        <span className="text-muted-foreground">{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+              <div className="bg-card rounded-xl border border-border p-6 md:p-8">
+                <h2 className="text-xl font-semibold text-foreground mb-4">O Que Oferecemos</h2>
+                <ul className="grid md:grid-cols-2 gap-3">
+                  {jobData.benefits.map((item, i) => (
+                    <li key={i} className="flex gap-3">
+                      <CheckCircle2 className="h-5 w-5 text-secondary flex-shrink-0 mt-0.5" />
+                      <span className="text-muted-foreground">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
               )}
 
               {/* Company Info */}
@@ -353,7 +353,7 @@ export default function VagaDetailPage() {
                       <Building2 className="w-6 w-6 text-muted-foreground" />
                     )}
                   </div>
-                  <div>
+                    <div>
                     <h3 className="font-semibold text-foreground">{jobData.company?.name || "Empresa"}</h3>
                     {jobData.sector && (
                       <p className="text-sm text-muted-foreground">{jobData.sector}</p>
@@ -524,7 +524,7 @@ export default function VagaDetailPage() {
                           className="w-full h-full object-cover rounded-xl" 
                         />
                       ) : (
-                        <Building2 className="w-7 h-7 text-muted-foreground" />
+                      <Building2 className="w-7 h-7 text-muted-foreground" />
                       )}
                     </div>
                     <div>

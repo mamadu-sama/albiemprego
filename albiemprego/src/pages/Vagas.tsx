@@ -317,7 +317,7 @@ export default function VagasPage() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [sortBy, setSortBy] = useState("recent");
   const [currentPage, setCurrentPage] = useState(1);
-  const [showOnlyGoodMatches, setShowOnlyGoodMatches] = useState(
+const [showOnlyGoodMatches, setShowOnlyGoodMatches] = useState(
     searchParams.get("goodMatches") === "true"
   );
   const [showOnlySalaryVisible, setShowOnlySalaryVisible] = useState(
@@ -438,7 +438,7 @@ export default function VagasPage() {
       toast.error("Apenas candidatos podem guardar vagas.");
       return;
     }
-
+    
     if (savedJobs.includes(id)) {
       unsaveJobMutation.mutate(id);
     } else {

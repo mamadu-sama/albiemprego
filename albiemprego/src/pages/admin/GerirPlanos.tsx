@@ -3,9 +3,6 @@ import { Footer } from "@/components/layout/Footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -15,17 +12,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { adminPlanApi, adminCreditPackageApi, adminSubscriptionApi } from "@/lib/api";
 import { 
   CreditCard, 
   Package, 
@@ -35,210 +24,195 @@ import {
   Edit,
   Plus,
   BarChart3,
-  Star,
-  Zap,
-  Crown
+  Loader2
 } from "lucide-react";
-
-// Mock subscription stats
-const subscriptionStats = [
-  { label: "Assinantes Ativos", value: "127", icon: Users, color: "text-blue-500", change: "+12 este mês" },
-  { label: "Receita Mensal", value: "€4.850", icon: Euro, color: "text-green-500", change: "+18% vs. mês anterior" },
-  { label: "Créditos Vendidos", value: "342", icon: Package, color: "text-purple-500", change: "Esta semana" },
-  { label: "Taxa Conversão", value: "23%", icon: TrendingUp, color: "text-orange-500", change: "Básico → Pago" },
-];
-
-// Mock plans data
-const plansData = [
-  { id: 'basic', name: 'Básico', price: 0, subscribers: 89, active: true },
-  { id: 'professional', name: 'Profissional', price: 49, subscribers: 31, active: true },
-  { id: 'premium', name: 'Premium', price: 99, subscribers: 7, active: true },
-];
-
-// Mock credit packages
-const creditPackagesData = [
-  { id: 'featured-5', name: '5 Destaques', price: 15, sold: 156, active: true },
-  { id: 'featured-10', name: '10 Destaques', price: 25, sold: 89, active: true },
-  { id: 'homepage-3', name: '3 Homepage', price: 30, sold: 45, active: true },
-  { id: 'urgent-5', name: '5 Urgente', price: 20, sold: 34, active: true },
-  { id: 'mixed-pack', name: 'Pack Completo', price: 50, sold: 18, active: true },
-];
-
-// Mock recent transactions
-const recentTransactions = [
-  { id: "1", company: "TechCorp", type: "Plano Profissional", amount: 49, date: "2024-01-15" },
-  { id: "2", company: "InnovaLda", type: "Pack Completo", amount: 50, date: "2024-01-15" },
-  { id: "3", company: "DesignPro", type: "5 Destaques", amount: 15, date: "2024-01-14" },
-  { id: "4", company: "WebAgency", type: "Plano Premium", amount: 99, date: "2024-01-14" },
-  { id: "5", company: "StartupXYZ", type: "3 Homepage", amount: 30, date: "2024-01-13" },
-];
 
 export default function AdminGerirPlanos() {
   const { toast } = useToast();
-  const [plans, setPlans] = useState(plansData);
-  const [creditPackages, setCreditPackages] = useState(creditPackagesData);
-  const [editingPlan, setEditingPlan] = useState<typeof plansData[0] | null>(null);
 
-  const handleTogglePlan = (planId: string) => {
-    setPlans(prev => prev.map(p => 
-      p.id === planId ? { ...p, active: !p.active } : p
-    ));
-    toast({
-      title: "Estado atualizado",
-      description: "O estado do plano foi alterado com sucesso.",
-    });
-  };
+  // Buscar estatísticas
+  const { data: stats, isLoading: loadingStats } = useQuery({
+    queryKey: ['adminStats'],
+    queryFn: () => adminSubscriptionApi.getStats(),
+  });
 
-  const handleTogglePackage = (packageId: string) => {
-    setCreditPackages(prev => prev.map(p => 
-      p.id === packageId ? { ...p, active: !p.active } : p
-    ));
-    toast({
-      title: "Estado atualizado",
-      description: "O estado do pacote foi alterado com sucesso.",
-    });
-  };
+  // Buscar planos
+  const { data: plans = [], isLoading: loadingPlans } = useQuery({
+    queryKey: ['adminPlans'],
+    queryFn: () => adminPlanApi.listPlans(true), // incluir inativos
+  });
 
-  const getPlanIcon = (planId: string) => {
-    switch (planId) {
-      case 'basic': return Star;
-      case 'professional': return Zap;
-      case 'premium': return Crown;
-      default: return Star;
-    }
-  };
+  // Buscar pacotes
+  const { data: creditPackages = [], isLoading: loadingPackages } = useQuery({
+    queryKey: ['adminPackages'],
+    queryFn: () => adminCreditPackageApi.listPackages(true), // incluir inativos
+  });
+
+  // Buscar transações
+  const { data: transactions = [], isLoading: loadingTransactions } = useQuery({
+    queryKey: ['adminTransactions'],
+    queryFn: () => adminSubscriptionApi.listTransactions(),
+  });
+
+  const subscriptionStats = stats ? [
+    { 
+      label: "Assinantes Ativos", 
+      value: stats.activeSubscribers.toString(), 
+      icon: Users, 
+      color: "text-blue-500", 
+      change: `${stats.totalCompanies} empresas total` 
+    },
+    { 
+      label: "Receita Mensal", 
+      value: `€${stats.monthlyRevenue.toFixed(2)}`, 
+      icon: Euro, 
+      color: "text-green-500", 
+      change: `€${stats.totalRevenue.toFixed(2)} total` 
+    },
+    { 
+      label: "Créditos Vendidos", 
+      value: stats.creditPackagesSold.toString(), 
+      icon: Package, 
+      color: "text-purple-500", 
+      change: "Pacotes totais" 
+    },
+    { 
+      label: "Taxa Conversão", 
+      value: stats.conversionRate, 
+      icon: TrendingUp, 
+      color: "text-orange-500", 
+      change: "Básico → Pago" 
+    },
+  ] : [];
+
+  if (loadingStats || loadingPlans || loadingPackages) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-1 container mx-auto px-4 py-8">
+          <div className="flex items-center justify-center h-64">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <span className="ml-2">A carregar dados...</span>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col bg-gray-50">
       <Header />
-      <main className="flex-1">
-        <div className="container mx-auto px-4 py-8">
+      
+      <main className="flex-1 container mx-auto px-4 py-8">
+        <div className="space-y-8">
           {/* Header */}
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
-            <div>
-              <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
-                <CreditCard className="h-8 w-8 text-primary" />
-                Gestão de Planos e Créditos
-              </h1>
-              <p className="text-muted-foreground">
-                Gerir planos de assinatura e pacotes de créditos
-              </p>
-            </div>
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Novo Plano
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Criar Novo Plano</DialogTitle>
-                  <DialogDescription>
-                    Adicione um novo plano de assinatura à plataforma.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="plan-name">Nome do Plano</Label>
-                    <Input id="plan-name" placeholder="Ex: Empresarial" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="plan-price">Preço Mensal (€)</Label>
-                    <Input id="plan-price" type="number" placeholder="0" />
-                  </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="featured-credits">Créditos Destaque</Label>
-                      <Input id="featured-credits" type="number" placeholder="0" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="homepage-credits">Créditos Homepage</Label>
-                      <Input id="homepage-credits" type="number" placeholder="0" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="urgent-credits">Créditos Urgente</Label>
-                      <Input id="urgent-credits" type="number" placeholder="0" />
-                    </div>
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button onClick={() => toast({ title: "Plano criado", description: "O novo plano foi criado com sucesso." })}>
-                    Criar Plano
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Gerir Planos e Créditos</h1>
+            <p className="text-gray-600 mt-2">
+              Configure planos de assinatura, pacotes de créditos e visualize estatísticas
+            </p>
           </div>
 
-          {/* Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            {subscriptionStats.map((stat) => (
-              <Card key={stat.label}>
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between mb-2">
-                    <stat.icon className={`h-8 w-8 ${stat.color}`} />
-                    <span className="text-xs text-muted-foreground">{stat.change}</span>
-                  </div>
-                  <p className="text-3xl font-bold text-foreground">{stat.value}</p>
-                  <p className="text-sm text-muted-foreground">{stat.label}</p>
+          {/* Statistics Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {subscriptionStats.map((stat, index) => (
+              <Card key={index}>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-600">
+                    {stat.label}
+                  </CardTitle>
+                  <stat.icon className={`h-5 w-5 ${stat.color}`} />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stat.value}</div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {stat.change}
+                  </p>
                 </CardContent>
               </Card>
             ))}
           </div>
 
+          {/* Tabs */}
           <Tabs defaultValue="plans" className="space-y-6">
-            <TabsList className="grid w-full max-w-lg grid-cols-3">
-              <TabsTrigger value="plans">Planos</TabsTrigger>
-              <TabsTrigger value="credits">Créditos</TabsTrigger>
-              <TabsTrigger value="transactions">Transações</TabsTrigger>
+            <TabsList>
+              <TabsTrigger value="plans" className="gap-2">
+                <CreditCard className="h-4 w-4" />
+                Planos de Assinatura
+              </TabsTrigger>
+              <TabsTrigger value="packages" className="gap-2">
+                <Package className="h-4 w-4" />
+                Pacotes de Créditos
+              </TabsTrigger>
+              <TabsTrigger value="transactions" className="gap-2">
+                <BarChart3 className="h-4 w-4" />
+                Transações
+              </TabsTrigger>
             </TabsList>
 
             {/* Plans Tab */}
             <TabsContent value="plans">
               <Card>
                 <CardHeader>
-                  <CardTitle>Planos de Assinatura</CardTitle>
-                  <CardDescription>Gerir os planos disponíveis para empresas</CardDescription>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>Planos de Assinatura</CardTitle>
+                      <CardDescription>
+                        Gerir planos disponíveis para empresas
+                      </CardDescription>
+                    </div>
+                    <Button onClick={() => toast({ title: "Em breve", description: "Funcionalidade de criar plano em desenvolvimento" })}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Novo Plano
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Plano</TableHead>
-                        <TableHead className="text-center">Preço</TableHead>
-                        <TableHead className="text-center">Assinantes</TableHead>
-                        <TableHead className="text-center">Estado</TableHead>
+                        <TableHead>Nome</TableHead>
+                        <TableHead>Preço/Mês</TableHead>
+                        <TableHead>Vagas Máx.</TableHead>
+                        <TableHead>Créditos Mensais</TableHead>
+                        <TableHead>Assinantes</TableHead>
+                        <TableHead>Estado</TableHead>
                         <TableHead className="text-right">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {plans.map((plan) => {
-                        const PlanIcon = getPlanIcon(plan.id);
+                        const planStats = stats?.subscriptionsByPlan.find(s => s.planId === plan.id);
                         return (
                           <TableRow key={plan.id}>
+                            <TableCell className="font-medium">
+                              {plan.name}
+                              {plan.isPopular && (
+                                <Badge variant="secondary" className="ml-2">Popular</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>€{plan.price}</TableCell>
+                            <TableCell>{plan.maxJobs === -1 ? 'Ilimitado' : plan.maxJobs}</TableCell>
                             <TableCell>
-                              <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                                  <PlanIcon className="h-4 w-4 text-primary" />
-                                </div>
-                                <span className="font-medium">{plan.name}</span>
+                              <div className="text-sm">
+                                {plan.featuredCreditsMonthly}F / {plan.homepageCreditsMonthly}H / {plan.urgentCreditsMonthly}U
                               </div>
                             </TableCell>
-                            <TableCell className="text-center">
-                              {plan.price === 0 ? 'Grátis' : `€${plan.price}/mês`}
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <Badge variant="secondary">{plan.subscribers}</Badge>
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <Switch 
-                                checked={plan.active}
-                                onCheckedChange={() => handleTogglePlan(plan.id)}
-                              />
+                            <TableCell>{planStats?.count || 0}</TableCell>
+                            <TableCell>
+                              {plan.isActive ? (
+                                <Badge variant="default">Ativo</Badge>
+                              ) : (
+                                <Badge variant="secondary">Inativo</Badge>
+                              )}
                             </TableCell>
                             <TableCell className="text-right">
-                              <Button variant="ghost" size="icon">
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => toast({ title: "Em breve", description: "Edição de planos em desenvolvimento" })}
+                              >
                                 <Edit className="h-4 w-4" />
                               </Button>
                             </TableCell>
@@ -251,61 +225,32 @@ export default function AdminGerirPlanos() {
               </Card>
             </TabsContent>
 
-            {/* Credits Tab */}
-            <TabsContent value="credits">
+            {/* Credit Packages Tab */}
+            <TabsContent value="packages">
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <div>
-                    <CardTitle>Pacotes de Créditos</CardTitle>
-                    <CardDescription>Gerir pacotes de créditos avulsos</CardDescription>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>Pacotes de Créditos</CardTitle>
+                      <CardDescription>
+                        Gerir pacotes de créditos avulsos
+                      </CardDescription>
+                    </div>
+                    <Button onClick={() => toast({ title: "Em breve", description: "Funcionalidade de criar pacote em desenvolvimento" })}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Novo Pacote
+                    </Button>
                   </div>
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        <Plus className="h-4 w-4 mr-2" />
-                        Novo Pacote
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Criar Novo Pacote</DialogTitle>
-                        <DialogDescription>
-                          Adicione um novo pacote de créditos.
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="pkg-name">Nome do Pacote</Label>
-                          <Input id="pkg-name" placeholder="Ex: 20 Destaques" />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="pkg-credits">Quantidade</Label>
-                            <Input id="pkg-credits" type="number" placeholder="0" />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="pkg-price">Preço (€)</Label>
-                            <Input id="pkg-price" type="number" placeholder="0" />
-                          </div>
-                        </div>
-                      </div>
-                      <DialogFooter>
-                        <Button onClick={() => toast({ title: "Pacote criado", description: "O novo pacote foi criado com sucesso." })}>
-                          Criar Pacote
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
                 </CardHeader>
                 <CardContent>
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Pacote</TableHead>
-                        <TableHead className="text-center">Preço</TableHead>
-                        <TableHead className="text-center">Vendidos</TableHead>
-                        <TableHead className="text-center">Receita</TableHead>
-                        <TableHead className="text-center">Estado</TableHead>
+                        <TableHead>Nome</TableHead>
+                        <TableHead>Preço</TableHead>
+                        <TableHead>Créditos</TableHead>
+                        <TableHead>Duração</TableHead>
+                        <TableHead>Estado</TableHead>
                         <TableHead className="text-right">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -313,21 +258,30 @@ export default function AdminGerirPlanos() {
                       {creditPackages.map((pkg) => (
                         <TableRow key={pkg.id}>
                           <TableCell className="font-medium">{pkg.name}</TableCell>
-                          <TableCell className="text-center">€{pkg.price}</TableCell>
-                          <TableCell className="text-center">
-                            <Badge variant="secondary">{pkg.sold}</Badge>
+                          <TableCell>€{pkg.price}</TableCell>
+                          <TableCell>
+                            <div className="text-sm">
+                              {pkg.featuredCredits}F / {pkg.homepageCredits}H / {pkg.urgentCredits}U
+                            </div>
                           </TableCell>
-                          <TableCell className="text-center text-success font-medium">
-                            €{pkg.sold * pkg.price}
+                          <TableCell>
+                            {pkg.creditDuration === 'DAYS_7' && '7 dias'}
+                            {pkg.creditDuration === 'DAYS_14' && '14 dias'}
+                            {pkg.creditDuration === 'DAYS_30' && '30 dias'}
                           </TableCell>
-                          <TableCell className="text-center">
-                            <Switch 
-                              checked={pkg.active}
-                              onCheckedChange={() => handleTogglePackage(pkg.id)}
-                            />
+                          <TableCell>
+                            {pkg.isActive ? (
+                              <Badge variant="default">Ativo</Badge>
+                            ) : (
+                              <Badge variant="secondary">Inativo</Badge>
+                            )}
                           </TableCell>
                           <TableCell className="text-right">
-                            <Button variant="ghost" size="icon">
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => toast({ title: "Em breve", description: "Edição de pacotes em desenvolvimento" })}
+                            >
                               <Edit className="h-4 w-4" />
                             </Button>
                           </TableCell>
@@ -344,41 +298,74 @@ export default function AdminGerirPlanos() {
               <Card>
                 <CardHeader>
                   <CardTitle>Transações Recentes</CardTitle>
-                  <CardDescription>Histórico de pagamentos e compras</CardDescription>
+                  <CardDescription>
+                    Histórico de compras e atribuições
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Empresa</TableHead>
-                        <TableHead>Tipo</TableHead>
-                        <TableHead className="text-center">Valor</TableHead>
-                        <TableHead className="text-right">Data</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {recentTransactions.map((tx) => (
-                        <TableRow key={tx.id}>
-                          <TableCell className="font-medium">{tx.company}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{tx.type}</Badge>
-                          </TableCell>
-                          <TableCell className="text-center text-success font-medium">
-                            €{tx.amount}
-                          </TableCell>
-                          <TableCell className="text-right text-muted-foreground">
-                            {tx.date}
-                          </TableCell>
+                  {loadingTransactions ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin" />
+                    </div>
+                  ) : transactions.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      Nenhuma transação registada
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Data</TableHead>
+                          <TableHead>Empresa</TableHead>
+                          <TableHead>Tipo</TableHead>
+                          <TableHead>Descrição</TableHead>
+                          <TableHead className="text-right">Valor</TableHead>
+                          <TableHead>Estado</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {transactions.map((transaction) => (
+                          <TableRow key={transaction.id}>
+                            <TableCell>
+                              {new Date(transaction.createdAt).toLocaleDateString('pt-PT')}
+                            </TableCell>
+                            <TableCell className="font-medium">
+                              {transaction.company?.name || 'N/A'}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline">
+                                {transaction.type.replace(/_/g, ' ')}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="max-w-xs truncate">
+                              {transaction.description}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              €{Number(transaction.amount).toFixed(2)}
+                            </TableCell>
+                            <TableCell>
+                              {transaction.status === 'COMPLETED' && (
+                                <Badge variant="default">Concluída</Badge>
+                              )}
+                              {transaction.status === 'PENDING' && (
+                                <Badge variant="secondary">Pendente</Badge>
+                              )}
+                              {transaction.status === 'FAILED' && (
+                                <Badge variant="destructive">Falhada</Badge>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
           </Tabs>
         </div>
       </main>
+
       <Footer />
     </div>
   );

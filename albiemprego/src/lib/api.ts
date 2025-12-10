@@ -730,6 +730,202 @@ export const savedJobsApi = {
   },
 };
 
+// ============================================
+// ADMIN - PLANOS
+// ============================================
+
+export const adminPlanApi = {
+  async listPlans(includeInactive: boolean = false): Promise<any[]> {
+    const response = await api.get(`/admin/plans?includeInactive=${includeInactive}`);
+    return response.data;
+  },
+
+  async getPlan(id: string): Promise<any> {
+    const response = await api.get(`/admin/plans/${id}`);
+    return response.data;
+  },
+
+  async createPlan(data: any): Promise<any> {
+    const response = await api.post("/admin/plans", data);
+    return response.data;
+  },
+
+  async updatePlan(id: string, data: any): Promise<any> {
+    const response = await api.patch(`/admin/plans/${id}`, data);
+    return response.data;
+  },
+
+  async togglePlan(id: string): Promise<any> {
+    const response = await api.patch(`/admin/plans/${id}/toggle`);
+    return response.data;
+  },
+
+  async deletePlan(id: string): Promise<{ message: string }> {
+    const response = await api.delete(`/admin/plans/${id}`);
+    return response.data;
+  },
+};
+
+// ============================================
+// ADMIN - PACOTES DE CRÉDITOS
+// ============================================
+
+export const adminCreditPackageApi = {
+  async listPackages(includeInactive: boolean = false): Promise<any[]> {
+    const response = await api.get(`/admin/credit-packages?includeInactive=${includeInactive}`);
+    return response.data;
+  },
+
+  async getPackage(id: string): Promise<any> {
+    const response = await api.get(`/admin/credit-packages/${id}`);
+    return response.data;
+  },
+
+  async createPackage(data: any): Promise<any> {
+    const response = await api.post("/admin/credit-packages", data);
+    return response.data;
+  },
+
+  async updatePackage(id: string, data: any): Promise<any> {
+    const response = await api.patch(`/admin/credit-packages/${id}`, data);
+    return response.data;
+  },
+
+  async togglePackage(id: string): Promise<any> {
+    const response = await api.patch(`/admin/credit-packages/${id}/toggle`);
+    return response.data;
+  },
+
+  async deletePackage(id: string): Promise<{ message: string }> {
+    const response = await api.delete(`/admin/credit-packages/${id}`);
+    return response.data;
+  },
+};
+
+// ============================================
+// ADMIN - ATRIBUIÇÕES E STATS
+// ============================================
+
+export const adminSubscriptionApi = {
+  async assignPlan(companyId: string, planId: string): Promise<any> {
+    const response = await api.post(`/admin/companies/${companyId}/assign-plan`, { planId });
+    return response.data;
+  },
+
+  async addCredits(companyId: string, credits: {
+    featured?: number;
+    homepage?: number;
+    urgent?: number;
+    duration: string;
+    notes?: string;
+  }): Promise<any> {
+    const response = await api.post(`/admin/companies/${companyId}/add-credits`, credits);
+    return response.data;
+  },
+
+  async getStats(): Promise<{
+    totalRevenue: number;
+    monthlyRevenue: number;
+    activeSubscribers: number;
+    subscriptionsByPlan: any[];
+    creditPackagesSold: number;
+    conversionRate: string;
+    totalCompanies: number;
+    paidSubscribers: number;
+  }> {
+    const response = await api.get("/admin/subscriptions/stats");
+    return response.data;
+  },
+
+  async listTransactions(filters?: any): Promise<any[]> {
+    const params = new URLSearchParams();
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value) params.append(key, value.toString());
+      });
+    }
+    const response = await api.get(`/admin/transactions?${params.toString()}`);
+    return response.data;
+  },
+};
+
+// ============================================
+// EMPRESA - ASSINATURAS E CRÉDITOS
+// ============================================
+
+export const subscriptionApi = {
+  async getPlans(): Promise<any[]> {
+    const response = await api.get("/subscriptions/plans");
+    return response.data;
+  },
+
+  async getCreditPackages(): Promise<any[]> {
+    const response = await api.get("/subscriptions/credit-packages");
+    return response.data;
+  },
+
+  async getCurrentSubscription(): Promise<{
+    subscription: any;
+    credits: {
+      summary: {
+        featured: number;
+        homepage: number;
+        urgent: number;
+      };
+      details: any[];
+    };
+    unreadNotifications: number;
+  }> {
+    const response = await api.get("/subscriptions/current");
+    return response.data;
+  },
+
+  async getTransactions(): Promise<any[]> {
+    const response = await api.get("/subscriptions/transactions");
+    return response.data;
+  },
+
+  async getNotifications(unreadOnly: boolean = false): Promise<any[]> {
+    const response = await api.get(`/subscriptions/notifications?unreadOnly=${unreadOnly}`);
+    return response.data;
+  },
+
+  async markNotificationAsRead(id: string): Promise<any> {
+    const response = await api.patch(`/subscriptions/notifications/${id}/read`);
+    return response.data;
+  },
+};
+
+// ============================================
+// EMPRESA - CRÉDITOS EM VAGAS
+// ============================================
+
+export const jobCreditApi = {
+  async applyCredit(jobId: string, creditType: "FEATURED" | "HOMEPAGE" | "URGENT"): Promise<any> {
+    const response = await api.post(`/jobs/${jobId}/apply-credit`, { creditType });
+    return response.data;
+  },
+
+  async getJobAnalytics(jobId: string): Promise<{
+    jobId: string;
+    hasCredits: boolean;
+    usages: any[];
+    totals: {
+      views: number;
+      clicks: number;
+      applications: number;
+    };
+    rates?: {
+      clickRate: number;
+      applicationRate: number;
+      conversionRate: number;
+    };
+  }> {
+    const response = await api.get(`/jobs/${jobId}/analytics`);
+    return response.data;
+  },
+};
+
 // Health check
 export const healthCheck = async (): Promise<{
   status: string;

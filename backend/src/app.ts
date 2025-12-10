@@ -24,6 +24,8 @@ import candidateRoutes from "./routes/candidate.routes";
 import companyRoutes from "./routes/company.routes";
 import jobRoutes from "./routes/job.routes";
 import savedJobRoutes from "./routes/saved-job.routes";
+import adminSubscriptionRoutes from "./routes/admin-subscription.routes";
+import companySubscriptionRoutes from "./routes/company-subscription.routes";
 
 // Criar aplicação Express
 const app: Application = express();
@@ -99,6 +101,8 @@ app.use("/api/v1/candidates", candidateRoutes);
 app.use("/api/v1/companies", companyRoutes);
 app.use("/api/v1/jobs", jobRoutes);
 app.use("/api/v1/saved-jobs", savedJobRoutes);
+app.use("/api/v1/admin", adminSubscriptionRoutes);
+app.use("/api/v1/subscriptions", companySubscriptionRoutes);
 
 // ============================================
 // ERROR HANDLING

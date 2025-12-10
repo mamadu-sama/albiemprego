@@ -15,48 +15,51 @@ import {
   Package,
   Sparkles,
   Home,
-  AlertTriangle
+  AlertTriangle,
+  Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function EmpresaPlanos() {
   const { toast } = useToast();
-  const { plans, creditPackages, currentSubscription, subscribeToPlan, purchaseCredits } = useSubscription();
+  const { plans, creditPackages, currentSubscription } = useSubscription();
 
   const handleSubscribe = (planId: string) => {
-    subscribeToPlan(planId);
     toast({
-      title: "Plano ativado!",
-      description: "O seu novo plano foi ativado com sucesso.",
+      title: "Contacte o Administrador",
+      description: "Para alterar o seu plano, por favor contacte o administrador da plataforma.",
+      variant: "default",
     });
   };
 
   const handlePurchaseCredits = (packageId: string) => {
-    purchaseCredits(packageId);
     toast({
-      title: "Créditos adicionados!",
-      description: "Os créditos foram adicionados à sua conta.",
+      title: "Contacte o Administrador",
+      description: "Para comprar créditos, por favor contacte o administrador da plataforma.",
+      variant: "default",
     });
   };
 
-  const getPlanIcon = (planId: string) => {
-    switch (planId) {
-      case 'basic': return Star;
-      case 'professional': return Zap;
-      case 'premium': return Crown;
-      default: return Star;
-    }
+  const getPlanIcon = (planName: string) => {
+    if (planName.toLowerCase().includes('premium')) return Crown;
+    if (planName.toLowerCase().includes('profissional')) return Zap;
+    return Star;
   };
 
-  const getCreditIcon = (type: string) => {
-    switch (type) {
-      case 'featured': return Sparkles;
-      case 'homepage': return Home;
-      case 'urgent': return AlertTriangle;
-      case 'mixed': return Package;
-      default: return Package;
-    }
-  };
+  if (!plans || !creditPackages) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-1 container mx-auto px-4 py-8">
+          <div className="flex items-center justify-center h-64">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <span className="ml-2">A carregar planos...</span>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -82,7 +85,7 @@ export default function EmpresaPlanos() {
                     <p className="text-sm text-muted-foreground">Plano Atual</p>
                     <p className="text-xl font-bold text-foreground">{currentSubscription.planName}</p>
                     <Badge variant={currentSubscription.status === 'active' ? 'default' : 'secondary'}>
-                      {currentSubscription.status === 'active' ? 'Ativo' : 'Cancelado'}
+                      {currentSubscription.status === 'active' ? 'Ativo' : currentSubscription.status === 'cancelled' ? 'Cancelado' : 'Expirado'}
                     </Badge>
                   </div>
                   <div className="flex flex-wrap gap-4">
@@ -104,140 +107,176 @@ export default function EmpresaPlanos() {
             </Card>
           )}
 
+          {/* Tabs */}
           <Tabs defaultValue="plans" className="space-y-8">
             <TabsList className="grid w-full max-w-md mx-auto grid-cols-2">
-              <TabsTrigger value="plans" className="flex items-center gap-2">
-                <CreditCard className="h-4 w-4" />
-                Planos Mensais
+              <TabsTrigger value="plans">
+                <CreditCard className="h-4 w-4 mr-2" />
+                Planos
               </TabsTrigger>
-              <TabsTrigger value="credits" className="flex items-center gap-2">
-                <Package className="h-4 w-4" />
+              <TabsTrigger value="credits">
+                <Package className="h-4 w-4 mr-2" />
                 Créditos Avulsos
               </TabsTrigger>
             </TabsList>
 
             {/* Plans Tab */}
             <TabsContent value="plans">
-              <div className="grid md:grid-cols-3 gap-6">
-                {plans.map((plan) => {
-                  const PlanIcon = getPlanIcon(plan.id);
-                  const isCurrentPlan = currentSubscription?.planId === plan.id;
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {plans.map((plan: any) => {
+                  const PlanIcon = getPlanIcon(plan.name);
+                  const isCurrentPlan = currentSubscription?.planName === plan.name;
+                  const features = Array.isArray(plan.features) ? plan.features : [];
 
                   return (
                     <Card 
                       key={plan.id}
                       className={cn(
                         "relative flex flex-col",
-                        plan.isPopular && "border-primary shadow-lg scale-105",
-                        isCurrentPlan && "ring-2 ring-primary"
+                        plan.isPopular && "border-primary shadow-lg",
+                        isCurrentPlan && "border-2 border-primary"
                       )}
                     >
                       {plan.isPopular && (
-                        <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                          <Badge className="bg-primary text-primary-foreground">
-                            Mais Popular
-                          </Badge>
-                        </div>
+                        <Badge className="absolute -top-3 left-1/2 -translate-x-1/2">
+                          Mais Popular
+                        </Badge>
                       )}
-
-                      <CardHeader className="text-center pb-2">
-                        <div className={cn(
-                          "mx-auto w-12 h-12 rounded-full flex items-center justify-center mb-4",
-                          plan.id === 'basic' && "bg-muted",
-                          plan.id === 'professional' && "bg-primary/10",
-                          plan.id === 'premium' && "bg-accent/10"
-                        )}>
-                          <PlanIcon className={cn(
-                            "h-6 w-6",
-                            plan.id === 'basic' && "text-muted-foreground",
-                            plan.id === 'professional' && "text-primary",
-                            plan.id === 'premium' && "text-accent"
-                          )} />
+                      {isCurrentPlan && (
+                        <Badge variant="secondary" className="absolute -top-3 right-4">
+                          Plano Atual
+                        </Badge>
+                      )}
+                      
+                      <CardHeader className="text-center pb-4">
+                        <div className="mx-auto mb-4 p-3 bg-primary/10 rounded-full w-fit">
+                          <PlanIcon className="h-8 w-8 text-primary" />
                         </div>
-                        <CardTitle>{plan.name}</CardTitle>
-                        <CardDescription>
-                          <span className="text-3xl font-bold text-foreground">
-                            {plan.price === 0 ? 'Grátis' : `€${plan.price}`}
-                          </span>
-                          {plan.price > 0 && (
-                            <span className="text-muted-foreground">/mês</span>
-                          )}
-                        </CardDescription>
+                        <CardTitle className="text-2xl">{plan.name}</CardTitle>
+                        <CardDescription>{plan.description}</CardDescription>
+                        <div className="mt-4">
+                          <span className="text-4xl font-bold">€{plan.price}</span>
+                          <span className="text-muted-foreground">/mês</span>
+                        </div>
                       </CardHeader>
 
-                      <CardContent className="flex-1">
-                        <ul className="space-y-3">
-                          {plan.features.map((feature, index) => (
-                            <li key={index} className="flex items-start gap-2">
-                              <Check className="h-4 w-4 text-success mt-0.5 flex-shrink-0" />
-                              <span className="text-sm text-muted-foreground">{feature}</span>
-                            </li>
-                          ))}
-                        </ul>
+                      <CardContent className="flex-1 space-y-4">
+                        <div className="space-y-2">
+                          <p className="text-sm font-semibold text-muted-foreground">Características:</p>
+                          <ul className="space-y-2">
+                            {features.map((feature: string, idx: number) => (
+                              <li key={idx} className="flex items-start gap-2">
+                                <Check className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                                <span className="text-sm">{feature}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+
+                        <div className="pt-4 border-t">
+                          <p className="text-sm font-semibold text-muted-foreground mb-2">Créditos Mensais:</p>
+                          <div className="grid grid-cols-3 gap-2 text-center">
+                            <div className="p-2 bg-primary/5 rounded">
+                              <p className="text-lg font-bold text-primary">{plan.featuredCreditsMonthly}</p>
+                              <p className="text-xs text-muted-foreground">Destaque</p>
+                            </div>
+                            <div className="p-2 bg-accent/5 rounded">
+                              <p className="text-lg font-bold text-accent">{plan.homepageCreditsMonthly}</p>
+                              <p className="text-xs text-muted-foreground">Homepage</p>
+                            </div>
+                            <div className="p-2 bg-destructive/5 rounded">
+                              <p className="text-lg font-bold text-destructive">{plan.urgentCreditsMonthly}</p>
+                              <p className="text-xs text-muted-foreground">Urgente</p>
+                            </div>
+                          </div>
+                        </div>
                       </CardContent>
 
                       <CardFooter>
                         <Button 
-                          className="w-full"
+                          className="w-full" 
                           variant={isCurrentPlan ? "outline" : plan.isPopular ? "default" : "secondary"}
-                          disabled={isCurrentPlan}
                           onClick={() => handleSubscribe(plan.id)}
+                          disabled={isCurrentPlan}
                         >
-                          {isCurrentPlan ? 'Plano Atual' : 'Escolher Plano'}
+                          {isCurrentPlan ? "Plano Atual" : "Escolher Plano"}
                         </Button>
                       </CardFooter>
                     </Card>
                   );
                 })}
               </div>
+
+              <Card className="mt-8 bg-muted/50">
+                <CardContent className="pt-6">
+                  <p className="text-sm text-muted-foreground text-center">
+                    <strong>Nota:</strong> Para alterar o seu plano, por favor contacte o administrador da plataforma.
+                    A integração com pagamentos estará disponível em breve.
+                  </p>
+                </CardContent>
+              </Card>
             </TabsContent>
 
-            {/* Credits Tab */}
+            {/* Credit Packages Tab */}
             <TabsContent value="credits">
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {creditPackages.map((pkg) => {
-                  const CreditIcon = getCreditIcon(pkg.type);
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {creditPackages.map((pkg: any) => {
+                  const hasFeature = pkg.featuredCredits > 0;
+                  const hasHome = pkg.homepageCredits > 0;
+                  const hasUrgent = pkg.urgentCredits > 0;
 
                   return (
                     <Card key={pkg.id} className="flex flex-col">
-                      <CardHeader>
-                        <div className="flex items-center gap-3">
-                          <div className={cn(
-                            "w-10 h-10 rounded-lg flex items-center justify-center",
-                            pkg.type === 'featured' && "bg-primary/10",
-                            pkg.type === 'homepage' && "bg-accent/10",
-                            pkg.type === 'urgent' && "bg-destructive/10",
-                            pkg.type === 'mixed' && "bg-muted"
-                          )}>
-                            <CreditIcon className={cn(
-                              "h-5 w-5",
-                              pkg.type === 'featured' && "text-primary",
-                              pkg.type === 'homepage' && "text-accent",
-                              pkg.type === 'urgent' && "text-destructive",
-                              pkg.type === 'mixed' && "text-foreground"
-                            )} />
-                          </div>
-                          <div>
-                            <CardTitle className="text-lg">{pkg.name}</CardTitle>
-                            <CardDescription>{pkg.description}</CardDescription>
-                          </div>
+                      <CardHeader className="text-center">
+                        <div className="mx-auto mb-2 p-2 bg-primary/10 rounded-full w-fit">
+                          <Package className="h-6 w-6 text-primary" />
+                        </div>
+                        <CardTitle className="text-xl">{pkg.name}</CardTitle>
+                        <CardDescription className="text-sm">{pkg.description}</CardDescription>
+                        <div className="mt-2">
+                          <span className="text-3xl font-bold">€{pkg.price}</span>
                         </div>
                       </CardHeader>
 
-                      <CardContent className="flex-1">
-                        <div className="flex items-baseline gap-1">
-                          <span className="text-3xl font-bold text-foreground">€{pkg.price}</span>
-                          {pkg.type !== 'mixed' && (
-                            <span className="text-sm text-muted-foreground">
-                              (€{(pkg.price / pkg.credits).toFixed(2)}/crédito)
-                            </span>
-                          )}
+                      <CardContent className="flex-1 space-y-3">
+                        {hasFeature && (
+                          <div className="flex items-center gap-2 p-2 bg-primary/5 rounded">
+                            <Sparkles className="h-5 w-5 text-primary" />
+                            <div className="flex-1">
+                              <p className="text-sm font-semibold">Destaques</p>
+                              <p className="text-xs text-muted-foreground">{pkg.featuredCredits} créditos</p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {hasHome && (
+                          <div className="flex items-center gap-2 p-2 bg-accent/5 rounded">
+                            <Home className="h-5 w-5 text-accent" />
+                            <div className="flex-1">
+                              <p className="text-sm font-semibold">Homepage</p>
+                              <p className="text-xs text-muted-foreground">{pkg.homepageCredits} créditos</p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {hasUrgent && (
+                          <div className="flex items-center gap-2 p-2 bg-destructive/5 rounded">
+                            <AlertTriangle className="h-5 w-5 text-destructive" />
+                            <div className="flex-1">
+                              <p className="text-sm font-semibold">Urgente</p>
+                              <p className="text-xs text-muted-foreground">{pkg.urgentCredits} créditos</p>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="pt-2 text-center text-xs text-muted-foreground">
+                          Validade: {pkg.creditDuration === 'DAYS_7' ? '7 dias' : pkg.creditDuration === 'DAYS_14' ? '14 dias' : '30 dias'}
                         </div>
                       </CardContent>
 
                       <CardFooter>
                         <Button 
-                          className="w-full"
+                          className="w-full" 
                           variant="outline"
                           onClick={() => handlePurchaseCredits(pkg.id)}
                         >
@@ -248,61 +287,17 @@ export default function EmpresaPlanos() {
                   );
                 })}
               </div>
+
+              <Card className="mt-8 bg-muted/50">
+                <CardContent className="pt-6">
+                  <p className="text-sm text-muted-foreground text-center">
+                    <strong>Nota:</strong> Para comprar créditos avulsos, por favor contacte o administrador da plataforma.
+                    A integração com pagamentos estará disponível em breve.
+                  </p>
+                </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
-
-          {/* FAQ Section */}
-          <div className="mt-16">
-            <h2 className="text-2xl font-bold text-foreground text-center mb-8">
-              Perguntas Frequentes
-            </h2>
-            <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">O que é um destaque na listagem?</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    As vagas destacadas aparecem no topo da lista de vagas com um badge especial, 
-                    aumentando a visibilidade até 3x mais candidaturas.
-                  </p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">O que é um destaque na homepage?</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    A vaga aparece na secção "Vagas em Destaque" na página inicial, 
-                    visível para todos os visitantes do site.
-                  </p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">O que é o badge urgente?</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    O badge "Urgente" indica que a vaga precisa ser preenchida rapidamente, 
-                    atraindo candidatos que procuram oportunidades imediatas.
-                  </p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Os créditos expiram?</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    Os créditos do plano são renovados mensalmente. 
-                    Créditos avulsos não expiram e podem ser utilizados a qualquer momento.
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
         </div>
       </main>
       <Footer />

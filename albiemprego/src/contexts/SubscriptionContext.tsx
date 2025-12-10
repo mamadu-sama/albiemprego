@@ -1,4 +1,7 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, ReactNode } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { subscriptionApi } from '@/lib/api';
+import { useAuth } from './AuthContext';
 
 export interface SubscriptionPlan {
   id: string;
@@ -148,98 +151,77 @@ const defaultCreditPackages: CreditPackage[] = [
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
 
 export function SubscriptionProvider({ children }: { children: ReactNode }) {
-  const [plans] = useState<SubscriptionPlan[]>(defaultPlans);
-  const [creditPackages] = useState<CreditPackage[]>(defaultCreditPackages);
-  const [currentSubscription, setCurrentSubscription] = useState<CompanySubscription | null>(() => {
-    const saved = localStorage.getItem('companySubscription');
-    if (saved) {
-      return JSON.parse(saved);
-    }
-    return {
-      planId: 'basic',
-      planName: 'Básico',
-      status: 'active',
-      startDate: new Date().toISOString(),
-      endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      credits: {
-        featured: 0,
-        urgent: 0,
-        homepage: 0
-      }
-    };
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const isCompany = user?.type === 'EMPRESA';
+
+  // Buscar planos disponíveis
+  const { data: plans = defaultPlans } = useQuery({
+    queryKey: ['plans'],
+    queryFn: () => subscriptionApi.getPlans(),
+    enabled: isCompany,
+    staleTime: 5 * 60 * 1000, // 5 minutos
   });
 
-  const saveSubscription = (sub: CompanySubscription) => {
-    localStorage.setItem('companySubscription', JSON.stringify(sub));
-    setCurrentSubscription(sub);
-  };
+  // Buscar pacotes de créditos disponíveis
+  const { data: creditPackages = defaultCreditPackages } = useQuery({
+    queryKey: ['creditPackages'],
+    queryFn: () => subscriptionApi.getCreditPackages(),
+    enabled: isCompany,
+    staleTime: 5 * 60 * 1000,
+  });
 
-  const subscribeToPlan = (planId: string) => {
-    const plan = plans.find(p => p.id === planId);
-    if (!plan) return;
+  // Buscar assinatura atual e créditos
+  const { data: subscriptionData } = useQuery({
+    queryKey: ['currentSubscription'],
+    queryFn: () => subscriptionApi.getCurrentSubscription(),
+    enabled: isCompany,
+    refetchInterval: 30 * 1000, // Atualizar a cada 30s
+  });
 
-    const newSubscription: CompanySubscription = {
-      planId: plan.id,
-      planName: plan.name,
-      status: 'active',
-      startDate: new Date().toISOString(),
-      endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      credits: {
-        featured: plan.featuredCredits,
-        urgent: plan.urgentCredits,
-        homepage: plan.homepageCredits
+  // Transformar dados da API para formato do context
+  const currentSubscription: CompanySubscription | null = subscriptionData?.subscription
+    ? {
+        planId: subscriptionData.subscription.planId,
+        planName: subscriptionData.subscription.plan.name,
+        status: subscriptionData.subscription.status.toLowerCase() as 'active' | 'cancelled' | 'expired',
+        startDate: subscriptionData.subscription.startDate,
+        endDate: subscriptionData.subscription.endDate,
+        credits: {
+          featured: subscriptionData.credits.summary.featured,
+          homepage: subscriptionData.credits.summary.homepage,
+          urgent: subscriptionData.credits.summary.urgent,
+        },
       }
-    };
-    saveSubscription(newSubscription);
+    : null;
+
+  // Mutation para subscrever a plano (não implementado ainda - admin atribui manualmente)
+  const subscribeToPlan = (planId: string) => {
+    console.log('Subscribe to plan called (manual assignment by admin only):', planId);
+    // TODO: Implementar quando conectar Stripe
   };
 
+  // Mutation para comprar créditos (não implementado ainda - admin atribui manualmente)
   const purchaseCredits = (packageId: string) => {
-    const pkg = creditPackages.find(p => p.id === packageId);
-    if (!pkg || !currentSubscription) return;
-
-    const newCredits = { ...currentSubscription.credits };
-    
-    if (pkg.type === 'featured') {
-      newCredits.featured += pkg.credits;
-    } else if (pkg.type === 'urgent') {
-      newCredits.urgent += pkg.credits;
-    } else if (pkg.type === 'homepage') {
-      newCredits.homepage += pkg.credits;
-    } else if (pkg.type === 'mixed') {
-      newCredits.featured += 5;
-      newCredits.homepage += 3;
-      newCredits.urgent += 2;
-    }
-
-    saveSubscription({
-      ...currentSubscription,
-      credits: newCredits
-    });
+    console.log('Purchase credits called (manual assignment by admin only):', packageId);
+    // TODO: Implementar quando conectar Stripe
   };
 
+  // Usar crédito (atualmente gerenciado pelo backend quando aplica em vaga)
   const useCredit = (type: 'featured' | 'urgent' | 'homepage'): boolean => {
     if (!currentSubscription) return false;
-    
     if (currentSubscription.credits[type] <= 0) return false;
 
-    const newCredits = { ...currentSubscription.credits };
-    newCredits[type] -= 1;
-
-    saveSubscription({
-      ...currentSubscription,
-      credits: newCredits
-    });
+    // Invalidar cache para forçar atualização
+    queryClient.invalidateQueries({ queryKey: ['currentSubscription'] });
 
     return true;
   };
 
+  // Cancelar assinatura
   const cancelSubscription = () => {
-    if (!currentSubscription) return;
-
-    saveSubscription({
-      ...currentSubscription,
-      status: 'cancelled'
-    });
+    console.log('Cancel subscription called (admin manages this)');
+    // TODO: Implementar endpoint de cancelamento
   };
 
   return (

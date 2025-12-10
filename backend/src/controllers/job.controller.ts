@@ -1,10 +1,17 @@
 // Controller de gestão de vagas
 import { Request, Response, NextFunction } from "express";
 import { JobService } from "../services/job.service";
-import { JobSearchService, JobSearchFilters } from "../services/job-search.service";
+import {
+  JobSearchService,
+  JobSearchFilters,
+} from "../services/job-search.service";
 import { MatchService } from "../services/match.service";
+import { CreditService } from "../services/credit.service";
+import { CreditAnalyticsService } from "../services/credit-analytics.service";
+import { JobLimitService } from "../services/job-limit.service";
 import { validationResult } from "express-validator";
 import { logger } from "../config/logger";
+import { prisma } from "../config/database";
 import { JobType, WorkMode } from "@prisma/client";
 
 export class JobController {
@@ -382,11 +389,7 @@ export class JobController {
   /**
    * GET /jobs/:id/match-score - Calcular match score para uma vaga específica (Candidato)
    */
-  static async getMatchScore(
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) {
+  static async getMatchScore(req: Request, res: Response, next: NextFunction) {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
@@ -429,7 +432,11 @@ export class JobController {
   /**
    * GET /jobs/recommended - Obter vagas recomendadas para o candidato
    */
-  static async getRecommendedJobs(req: Request, res: Response, next: NextFunction) {
+  static async getRecommendedJobs(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
     try {
       const userId = req.user?.userId;
 
@@ -441,7 +448,10 @@ export class JobController {
       }
 
       const limit = parseInt(req.query.limit as string) || 6;
-      const recommendedJobs = await JobService.getRecommendedJobs(userId, limit);
+      const recommendedJobs = await JobService.getRecommendedJobs(
+        userId,
+        limit
+      );
 
       return res.status(200).json({
         jobs: recommendedJobs,
@@ -452,5 +462,104 @@ export class JobController {
       return next(error);
     }
   }
-}
 
+  /**
+   * POST /jobs/:id/apply-credit - Aplicar crédito numa vaga
+   */
+  static async applyCredit(req: Request, res: Response, next: NextFunction) {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          error: "VALIDATION_ERROR",
+          message: "Dados inválidos",
+          errors: errors.array(),
+        });
+      }
+
+      const { id } = req.params;
+      const { creditType } = req.body;
+      const userId = req.user?.userId;
+
+      // Buscar empresa do usuário
+      const company = await prisma.company.findUnique({
+        where: { userId },
+        select: { id: true },
+      });
+
+      if (!company) {
+        return res.status(400).json({
+          error: "BAD_REQUEST",
+          message: "Empresa não encontrada no utilizador",
+        });
+      }
+
+      const companyId = company.id;
+
+      // Verificar se a vaga pertence à empresa
+      const job = await JobService.getJob(id);
+      if (job.companyId !== companyId) {
+        return res.status(403).json({
+          error: "FORBIDDEN",
+          message: "Esta vaga não pertence à sua empresa",
+        });
+      }
+
+      // Usar crédito
+      const usage = await CreditService.useCredit(companyId, id, creditType);
+
+      return res.status(200).json({
+        message: "Crédito aplicado com sucesso",
+        usage,
+      });
+    } catch (error) {
+      logger.error("Error applying credit:", error);
+      return next(error);
+    }
+  }
+
+  /**
+   * GET /jobs/:id/analytics - Obter analytics de uma vaga
+   */
+  static async getJobAnalytics(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const { id } = req.params;
+      const userId = req.user?.userId;
+
+      // Buscar empresa do usuário
+      const company = await prisma.company.findUnique({
+        where: { userId },
+        select: { id: true },
+      });
+
+      if (!company) {
+        return res.status(400).json({
+          error: "BAD_REQUEST",
+          message: "Empresa não encontrada no utilizador",
+        });
+      }
+
+      const companyId = company.id;
+
+      // Verificar se a vaga pertence à empresa
+      const job = await JobService.getJob(id);
+      if (job.companyId !== companyId) {
+        return res.status(403).json({
+          error: "FORBIDDEN",
+          message: "Esta vaga não pertence à sua empresa",
+        });
+      }
+
+      const analytics = await CreditAnalyticsService.getJobAnalytics(id);
+
+      return res.status(200).json(analytics);
+    } catch (error) {
+      logger.error("Error getting job analytics:", error);
+      return next(error);
+    }
+  }
+}
