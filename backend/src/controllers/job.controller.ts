@@ -1,6 +1,7 @@
 // Controller de gestão de vagas
 import { Request, Response, NextFunction } from "express";
 import { JobService } from "../services/job.service";
+import { AppError } from "../utils/errors";
 import {
   JobSearchService,
   JobSearchFilters,
@@ -637,9 +638,7 @@ export class JobController {
     next: NextFunction
   ) {
     try {
-      const limit = req.query.limit
-        ? parseInt(req.query.limit as string)
-        : 6;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 6;
 
       const jobs = await JobService.getFeaturedHomepageJobs(limit);
 
@@ -653,11 +652,13 @@ export class JobController {
   /**
    * GET /jobs/featured/listing - Vagas em destaque na listagem
    */
-  static async getFeaturedJobs(req: Request, res: Response, next: NextFunction) {
+  static async getFeaturedJobs(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
     try {
-      const limit = req.query.limit
-        ? parseInt(req.query.limit as string)
-        : 20;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
 
       const jobs = await JobService.getFeaturedJobs(limit);
 
@@ -673,9 +674,7 @@ export class JobController {
    */
   static async getUrgentJobs(req: Request, res: Response, next: NextFunction) {
     try {
-      const limit = req.query.limit
-        ? parseInt(req.query.limit as string)
-        : 10;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
 
       const jobs = await JobService.getUrgentJobs(limit);
 

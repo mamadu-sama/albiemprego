@@ -319,7 +319,8 @@ model Job {
   applicationDeadline DateTime?
 
   // Métricas
-  viewsCount Int @default(0)
+  viewsCount   Int @default(0)
+  reportsCount Int @default(0) // Contador de denúncias
 
   // Aprovação
   approvedAt      DateTime?

@@ -145,5 +145,252 @@ export class EmailService {
       html,
     });
   }
+
+  /**
+   * Email de conta suspensa
+   */
+  static async sendAccountSuspendedEmail(user: User) {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background-color: #dc2626; color: white; padding: 20px; text-align: center; }
+            .content { padding: 20px; background-color: #f9fafb; }
+            .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 12px; }
+            .warning { background-color: #fee2e2; padding: 15px; border-left: 4px solid #dc2626; margin: 15px 0; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>Conta Suspensa</h1>
+            </div>
+            <div class="content">
+              <p>Olá <strong>${user.name}</strong>,</p>
+              <div class="warning">
+                <p>A sua conta no AlbiEmprego foi <strong>suspensa</strong> temporariamente.</p>
+              </div>
+              <p>Durante este período, não poderá aceder à plataforma.</p>
+              <p>Se acredita que isto é um erro ou deseja esclarecer a situação, por favor contacte-nos:</p>
+              <ul>
+                <li>Email: <a href="mailto:${process.env.SUPPORT_EMAIL}">${process.env.SUPPORT_EMAIL}</a></li>
+                <li>Referência da conta: ${user.id}</li>
+              </ul>
+            </div>
+            <div class="footer">
+              <p>© 2024 AlbiEmprego - Plataforma Regional de Emprego</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    await this.sendEmail({
+      to: user.email,
+      subject: "Conta Suspensa - AlbiEmprego",
+      html,
+    });
+  }
+
+  /**
+   * Email de conta ativada
+   */
+  static async sendAccountActivatedEmail(user: User) {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background-color: #16a34a; color: white; padding: 20px; text-align: center; }
+            .content { padding: 20px; background-color: #f9fafb; }
+            .button { display: inline-block; padding: 12px 24px; background-color: #16a34a; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+            .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>Conta Ativada</h1>
+            </div>
+            <div class="content">
+              <p>Olá <strong>${user.name}</strong>,</p>
+              <p>Boas notícias! A sua conta no AlbiEmprego foi <strong>ativada</strong>.</p>
+              <p>Pode agora aceder normalmente à plataforma.</p>
+              <center>
+                <a href="${process.env.FRONTEND_URL}" class="button">Aceder à Plataforma</a>
+              </center>
+              <p>Bem-vindo de volta!</p>
+            </div>
+            <div class="footer">
+              <p>© 2024 AlbiEmprego - Plataforma Regional de Emprego</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    await this.sendEmail({
+      to: user.email,
+      subject: "Conta Ativada - AlbiEmprego",
+      html,
+    });
+  }
+
+  /**
+   * Email de empresa aprovada
+   */
+  static async sendCompanyApprovedEmail(company: any) {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background-color: #16a34a; color: white; padding: 20px; text-align: center; }
+            .content { padding: 20px; background-color: #f9fafb; }
+            .button { display: inline-block; padding: 12px 24px; background-color: #16a34a; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+            .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 12px; }
+            .success-box { background-color: #d1fae5; padding: 15px; border-left: 4px solid #16a34a; margin: 15px 0; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>🎉 Empresa Aprovada!</h1>
+            </div>
+            <div class="content">
+              <p>Olá <strong>${company.name}</strong>,</p>
+              <div class="success-box">
+                <p><strong>Boas notícias!</strong> A sua empresa foi aprovada no AlbiEmprego.</p>
+              </div>
+              <p>Pode agora publicar vagas e começar a procurar os melhores talentos da região de Castelo Branco!</p>
+              <center>
+                <a href="${process.env.FRONTEND_URL}/empresa/dashboard" class="button">Aceder ao Dashboard</a>
+              </center>
+              <p>Se tiver alguma dúvida, a nossa equipa está disponível para ajudar.</p>
+              <p>Bem-vindo à plataforma AlbiEmprego!</p>
+            </div>
+            <div class="footer">
+              <p>© 2024 AlbiEmprego - Plataforma Regional de Emprego</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    await this.sendEmail({
+      to: company.user.email,
+      subject: "Empresa Aprovada - AlbiEmprego",
+      html,
+    });
+  }
+
+  /**
+   * Email de notificação
+   */
+  static async sendNotificationEmail(
+    user: { email: string; name: string },
+    title: string,
+    message: string,
+    actionUrl?: string
+  ) {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background-color: #2563eb; color: white; padding: 20px; text-align: center; }
+            .content { padding: 20px; background-color: #f9fafb; }
+            .button { display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+            .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 12px; }
+            .message { background-color: white; padding: 20px; border-radius: 5px; border-left: 4px solid #2563eb; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>${title}</h1>
+            </div>
+            <div class="content">
+              <p>Olá <strong>${user.name}</strong>,</p>
+              <div class="message">
+                ${message.replace(/\n/g, "<br>")}
+              </div>
+              ${
+                actionUrl
+                  ? `<center>
+                      <a href="${actionUrl}" class="button">Ver Mais</a>
+                    </center>`
+                  : ""
+              }
+            </div>
+            <div class="footer">
+              <p>© 2024 AlbiEmprego - Plataforma Regional de Emprego</p>
+              <p>Esta é uma notificação automática da plataforma.</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    await this.sendEmail({
+      to: user.email,
+      subject: `AlbiEmprego - ${title}`,
+      html,
+    });
+  }
+
+  /**
+   * Email personalizado de administrador
+   */
+  static async sendAdminEmail(user: User, subject: string, message: string) {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background-color: #2563eb; color: white; padding: 20px; text-align: center; }
+            .content { padding: 20px; background-color: #f9fafb; }
+            .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 12px; }
+            .message { background-color: white; padding: 20px; border-radius: 5px; border-left: 4px solid #2563eb; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>Mensagem do AlbiEmprego</h1>
+            </div>
+            <div class="content">
+              <p>Olá <strong>${user.name}</strong>,</p>
+              <div class="message">
+                ${message.replace(/\n/g, "<br>")}
+              </div>
+              <p>Se tiver alguma dúvida, pode responder a este email ou contactar-nos em: <a href="mailto:${process.env.SUPPORT_EMAIL}">${process.env.SUPPORT_EMAIL}</a></p>
+            </div>
+            <div class="footer">
+              <p>© 2024 AlbiEmprego - Plataforma Regional de Emprego</p>
+              <p>Este email foi enviado pela administração da plataforma.</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    await this.sendEmail({
+      to: user.email,
+      subject: `AlbiEmprego - ${subject}`,
+      html,
+    });
+  }
 }
 

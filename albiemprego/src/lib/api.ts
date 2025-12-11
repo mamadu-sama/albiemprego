@@ -1,5 +1,5 @@
 // Cliente API para comunicação com o backend
-import axios, { AxiosError } from "axios";
+import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001/api/v1";
 
@@ -26,11 +26,16 @@ api.interceptors.request.use(
   }
 );
 
+// Extend InternalAxiosRequestConfig to include _retry property
+interface ExtendedAxiosRequestConfig extends InternalAxiosRequestConfig {
+  _retry?: boolean;
+}
+
 // Interceptor para tratar erros e refresh token
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
-    const originalRequest = error.config as any;
+    const originalRequest = error.config as ExtendedAxiosRequestConfig;
 
     // Se erro 401 e não é rota de login/refresh
     if (
@@ -76,8 +81,70 @@ api.interceptors.response.use(
 export interface ApiError {
   error: string;
   message: string;
-  details?: any;
+  details?: Record<string, unknown>;
   timestamp: string;
+}
+
+export interface SubscriptionPlan {
+  id: string;
+  name: string;
+  description: string;
+  price: string;
+  currency: string;
+  maxJobs: number;
+  featuredCreditsMonthly: number;
+  homepageCreditsMonthly: number;
+  urgentCreditsMonthly: number;
+  creditDuration: string;
+  features: string[];
+  isActive: boolean;
+  isPopular: boolean;
+  displayOrder: number;
+  stripePriceId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreatePlanDTO {
+  name: string;
+  description: string;
+  price: string;
+  maxJobs: number;
+  featuredCreditsMonthly: number;
+  homepageCreditsMonthly: number;
+  urgentCreditsMonthly: number;
+  creditDuration: string;
+  features: string[];
+  isPopular?: boolean;
+  displayOrder?: number;
+}
+
+export interface CreditPackage {
+  id: string;
+  name: string;
+  description: string;
+  price: string;
+  currency: string;
+  featuredCredits: number;
+  homepageCredits: number;
+  urgentCredits: number;
+  creditDuration: string;
+  isActive: boolean;
+  displayOrder: number;
+  stripePriceId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCreditPackageDTO {
+  name: string;
+  description: string;
+  price: string;
+  featuredCredits: number;
+  homepageCredits: number;
+  urgentCredits: number;
+  creditDuration: string;
+  displayOrder?: number;
 }
 
 export interface Experience {
@@ -319,12 +386,12 @@ export const candidateApi = {
     skills?: string[];
     experienceYears?: number;
     currentPosition?: string;
-  }): Promise<any> {
+  }): Promise<CandidateProfile> {
     const response = await api.patch("/candidates/me", data);
     return response.data;
   },
 
-  async uploadCV(file: File): Promise<any> {
+  async uploadCV(file: File): Promise<{ cvUrl: string; message: string }> {
     const formData = new FormData();
     formData.append("cv", file);
 
@@ -633,7 +700,7 @@ export const jobApi = {
   },
 
   async getMyJobs(status?: string): Promise<Job[]> {
-    const params = status ? `?status=${status}` : '';
+    const params = status ? `?status=${status}` : "";
     const response = await api.get(`/jobs/my-jobs${params}`);
     return response.data;
   },
@@ -651,7 +718,7 @@ export const jobApi = {
     totalApplications: number;
     totalViews: number;
   }> {
-    const response = await api.get('/jobs/my-jobs/stats');
+    const response = await api.get("/jobs/my-jobs/stats");
     return response.data;
   },
 
@@ -661,7 +728,7 @@ export const jobApi = {
    */
   async searchJobs(filters?: JobSearchFilters): Promise<JobsResponse> {
     const params = new URLSearchParams();
-    
+
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
@@ -694,7 +761,9 @@ export const jobApi = {
    * Obter vagas recomendadas para o candidato (baseado no perfil)
    * Requer autenticação como candidato
    */
-  async getRecommendedJobs(limit: number = 6): Promise<{ jobs: Job[]; total: number }> {
+  async getRecommendedJobs(
+    limit: number = 6
+  ): Promise<{ jobs: Job[]; total: number }> {
     const response = await api.get(`/jobs/recommended?limit=${limit}`);
     return response.data;
   },
@@ -729,7 +798,9 @@ export const savedJobsApi = {
   /**
    * Guardar uma vaga
    */
-  async saveJob(jobId: string): Promise<{ message: string; savedJob: SavedJob }> {
+  async saveJob(
+    jobId: string
+  ): Promise<{ message: string; savedJob: SavedJob }> {
     const response = await api.post(`/saved-jobs/${jobId}`);
     return response.data;
   },
@@ -772,27 +843,34 @@ export const savedJobsApi = {
 // ============================================
 
 export const adminPlanApi = {
-  async listPlans(includeInactive: boolean = false): Promise<any[]> {
-    const response = await api.get(`/admin/plans?includeInactive=${includeInactive}`);
+  async listPlans(
+    includeInactive: boolean = false
+  ): Promise<SubscriptionPlan[]> {
+    const response = await api.get(
+      `/admin/plans?includeInactive=${includeInactive}`
+    );
     return response.data;
   },
 
-  async getPlan(id: string): Promise<any> {
+  async getPlan(id: string): Promise<SubscriptionPlan> {
     const response = await api.get(`/admin/plans/${id}`);
     return response.data;
   },
 
-  async createPlan(data: any): Promise<any> {
+  async createPlan(data: CreatePlanDTO): Promise<SubscriptionPlan> {
     const response = await api.post("/admin/plans", data);
     return response.data;
   },
 
-  async updatePlan(id: string, data: any): Promise<any> {
+  async updatePlan(
+    id: string,
+    data: Partial<CreatePlanDTO>
+  ): Promise<SubscriptionPlan> {
     const response = await api.patch(`/admin/plans/${id}`, data);
     return response.data;
   },
 
-  async togglePlan(id: string): Promise<any> {
+  async togglePlan(id: string): Promise<SubscriptionPlan> {
     const response = await api.patch(`/admin/plans/${id}/toggle`);
     return response.data;
   },
@@ -808,27 +886,34 @@ export const adminPlanApi = {
 // ============================================
 
 export const adminCreditPackageApi = {
-  async listPackages(includeInactive: boolean = false): Promise<any[]> {
-    const response = await api.get(`/admin/credit-packages?includeInactive=${includeInactive}`);
+  async listPackages(
+    includeInactive: boolean = false
+  ): Promise<CreditPackage[]> {
+    const response = await api.get(
+      `/admin/credit-packages?includeInactive=${includeInactive}`
+    );
     return response.data;
   },
 
-  async getPackage(id: string): Promise<any> {
+  async getPackage(id: string): Promise<CreditPackage> {
     const response = await api.get(`/admin/credit-packages/${id}`);
     return response.data;
   },
 
-  async createPackage(data: any): Promise<any> {
+  async createPackage(data: CreateCreditPackageDTO): Promise<CreditPackage> {
     const response = await api.post("/admin/credit-packages", data);
     return response.data;
   },
 
-  async updatePackage(id: string, data: any): Promise<any> {
+  async updatePackage(
+    id: string,
+    data: Partial<CreateCreditPackageDTO>
+  ): Promise<CreditPackage> {
     const response = await api.patch(`/admin/credit-packages/${id}`, data);
     return response.data;
   },
 
-  async togglePackage(id: string): Promise<any> {
+  async togglePackage(id: string): Promise<CreditPackage> {
     const response = await api.patch(`/admin/credit-packages/${id}/toggle`);
     return response.data;
   },
@@ -843,38 +928,73 @@ export const adminCreditPackageApi = {
 // ADMIN - ATRIBUIÇÕES E STATS
 // ============================================
 
+export interface Transaction {
+  id: string;
+  companyId: string;
+  type: "SUBSCRIPTION" | "CREDIT_PURCHASE" | "REFUND";
+  status: "PENDING" | "COMPLETED" | "FAILED" | "REFUNDED";
+  amount: string;
+  currency: string;
+  description: string;
+  createdAt: string;
+}
+
+export interface SubscriptionStats {
+  totalRevenue: number;
+  monthlyRevenue: number;
+  activeSubscribers: number;
+  subscriptionsByPlan: Array<{
+    planId: string;
+    planName: string;
+    count: number;
+  }>;
+  creditPackagesSold: number;
+  conversionRate: string;
+  totalCompanies: number;
+  paidSubscribers: number;
+}
+
 export const adminSubscriptionApi = {
-  async assignPlan(companyId: string, planId: string): Promise<any> {
-    const response = await api.post(`/admin/companies/${companyId}/assign-plan`, { planId });
+  async assignPlan(
+    companyId: string,
+    planId: string
+  ): Promise<{ success: boolean; message: string }> {
+    const response = await api.post(
+      `/admin/companies/${companyId}/assign-plan`,
+      { planId }
+    );
     return response.data;
   },
 
-  async addCredits(companyId: string, credits: {
-    featured?: number;
-    homepage?: number;
-    urgent?: number;
-    duration: string;
-    notes?: string;
-  }): Promise<any> {
-    const response = await api.post(`/admin/companies/${companyId}/add-credits`, credits);
+  async addCredits(
+    companyId: string,
+    credits: {
+      featured?: number;
+      homepage?: number;
+      urgent?: number;
+      duration: string;
+      notes?: string;
+    }
+  ): Promise<{ success: boolean; message: string }> {
+    const response = await api.post(
+      `/admin/companies/${companyId}/add-credits`,
+      credits
+    );
     return response.data;
   },
 
-  async getStats(): Promise<{
-    totalRevenue: number;
-    monthlyRevenue: number;
-    activeSubscribers: number;
-    subscriptionsByPlan: any[];
-    creditPackagesSold: number;
-    conversionRate: string;
-    totalCompanies: number;
-    paidSubscribers: number;
-  }> {
+  async getStats(): Promise<SubscriptionStats> {
     const response = await api.get("/admin/subscriptions/stats");
     return response.data;
   },
 
-  async listTransactions(filters?: any): Promise<any[]> {
+  async listTransactions(filters?: {
+    type?: string;
+    status?: string;
+    companyId?: string;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<Transaction[]> {
     const params = new URLSearchParams();
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
@@ -890,20 +1010,41 @@ export const adminSubscriptionApi = {
 // EMPRESA - ASSINATURAS E CRÉDITOS
 // ============================================
 
+export interface CompanySubscription {
+  id: string;
+  companyId: string;
+  planId: string;
+  status: "ACTIVE" | "CANCELLED" | "EXPIRED";
+  startDate: string;
+  endDate: string;
+  cancelledAt?: string;
+  cancelReason?: string;
+}
+
+export interface CompanyNotification {
+  id: string;
+  companyId: string;
+  type: string;
+  title: string;
+  message: string;
+  read: boolean;
+  createdAt: string;
+}
+
 export const subscriptionApi = {
-  async getPlans(): Promise<any[]> {
+  async getPlans(): Promise<SubscriptionPlan[]> {
     const response = await api.get("/subscriptions/plans");
     return response.data;
   },
 
-  async getCreditPackages(): Promise<any[]> {
+  async getCreditPackages(): Promise<CreditPackage[]> {
     const response = await api.get("/subscriptions/credit-packages");
     return response.data;
   },
 
   async getCurrentSubscription(): Promise<{
-    subscription: any;
-    plan: any;
+    subscription: CompanySubscription | null;
+    plan: SubscriptionPlan | null;
     credits: {
       featured: number;
       homepage: number;
@@ -915,17 +1056,23 @@ export const subscriptionApi = {
     return response.data;
   },
 
-  async getTransactions(): Promise<any[]> {
+  async getTransactions(): Promise<Transaction[]> {
     const response = await api.get("/subscriptions/transactions");
     return response.data;
   },
 
-  async getNotifications(unreadOnly: boolean = false): Promise<any[]> {
-    const response = await api.get(`/subscriptions/notifications?unreadOnly=${unreadOnly}`);
+  async getNotifications(
+    unreadOnly: boolean = false
+  ): Promise<CompanyNotification[]> {
+    const response = await api.get(
+      `/subscriptions/notifications?unreadOnly=${unreadOnly}`
+    );
     return response.data;
   },
 
-  async markNotificationAsRead(id: string): Promise<any> {
+  async markNotificationAsRead(
+    id: string
+  ): Promise<{ success: boolean; message: string }> {
     const response = await api.patch(`/subscriptions/notifications/${id}/read`);
     return response.data;
   },
@@ -935,37 +1082,65 @@ export const subscriptionApi = {
 // EMPRESA - CRÉDITOS EM VAGAS
 // ============================================
 
+export interface CreditUsage {
+  id: string;
+  jobId: string;
+  companyId: string;
+  balanceId: string;
+  creditType: "FEATURED" | "HOMEPAGE" | "URGENT";
+  startDate: string;
+  endDate: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface JobAnalytics {
+  jobId: string;
+  hasCredits: boolean;
+  usages: CreditUsage[];
+  totals: {
+    views: number;
+    clicks: number;
+    applications: number;
+  };
+  rates?: {
+    clickRate: number;
+    applicationRate: number;
+    conversionRate: number;
+  };
+}
+
 export const jobCreditApi = {
-  async applyCredit(jobId: string, creditType: "FEATURED" | "HOMEPAGE" | "URGENT"): Promise<any> {
-    const response = await api.post(`/jobs/${jobId}/apply-credit`, { creditType });
+  async applyCredit(
+    jobId: string,
+    creditType: "FEATURED" | "HOMEPAGE" | "URGENT"
+  ): Promise<{ success: boolean; message: string; usage: CreditUsage }> {
+    const response = await api.post(`/jobs/${jobId}/apply-credit`, {
+      creditType,
+    });
     return response.data;
   },
-  
-  async applyCreditToJob(jobId: string, creditType: string, duration: number): Promise<any> {
-    const response = await api.post(`/jobs/${jobId}/apply-credit`, { creditType, duration });
+
+  async applyCreditToJob(
+    jobId: string,
+    creditType: string,
+    duration: number
+  ): Promise<{ success: boolean; message: string; usage: CreditUsage }> {
+    const response = await api.post(`/jobs/${jobId}/apply-credit`, {
+      creditType,
+      duration,
+    });
     return response.data;
   },
-  
-  async removeCreditFromJob(usageId: string): Promise<any> {
+
+  async removeCreditFromJob(
+    usageId: string
+  ): Promise<{ success: boolean; message: string }> {
     const response = await api.delete(`/jobs/credit-usage/${usageId}`);
     return response.data;
   },
 
-  async getJobAnalytics(jobId: string): Promise<{
-    jobId: string;
-    hasCredits: boolean;
-    usages: any[];
-    totals: {
-      views: number;
-      clicks: number;
-      applications: number;
-    };
-    rates?: {
-      clickRate: number;
-      applicationRate: number;
-      conversionRate: number;
-    };
-  }> {
+  async getJobAnalytics(jobId: string): Promise<JobAnalytics> {
     const response = await api.get(`/jobs/${jobId}/analytics`);
     return response.data;
   },
@@ -976,24 +1151,38 @@ export const jobCreditApi = {
 // ============================================
 
 export const companyRequestApi = {
-  async requestPlan(planId: string, message?: string): Promise<any> {
-    const response = await api.post("/company/requests/plan", { planId, message });
+  async requestPlan(
+    planId: string,
+    message?: string
+  ): Promise<{ success: boolean; message: string; request: PlanRequest }> {
+    const response = await api.post("/company/requests/plan", {
+      planId,
+      message,
+    });
     return response.data;
   },
 
-  async requestCredits(packageId: string, message?: string): Promise<any> {
-    const response = await api.post("/company/requests/credits", { packageId, message });
+  async requestCredits(
+    packageId: string,
+    message?: string
+  ): Promise<{ success: boolean; message: string; request: PlanRequest }> {
+    const response = await api.post("/company/requests/credits", {
+      packageId,
+      message,
+    });
     return response.data;
   },
 
-  async getMyRequests(status?: string): Promise<any> {
+  async getMyRequests(status?: string): Promise<PlanRequest[]> {
     const response = await api.get("/company/requests", {
       params: { status },
     });
     return response.data;
   },
 
-  async cancelRequest(requestId: string): Promise<any> {
+  async cancelRequest(
+    requestId: string
+  ): Promise<{ success: boolean; message: string }> {
     const response = await api.delete(`/company/requests/${requestId}`);
     return response.data;
   },
@@ -1011,7 +1200,7 @@ export const adminRequestApi = {
     limit?: number;
   }): Promise<{
     success: boolean;
-    requests: any[];
+    requests: PlanRequest[];
     pagination: {
       total: number;
       page: number;
@@ -1023,32 +1212,81 @@ export const adminRequestApi = {
     return response.data;
   },
 
-  async getRequestById(requestId: string): Promise<any> {
+  async getRequestById(requestId: string): Promise<PlanRequest> {
     const response = await api.get(`/admin/requests/${requestId}`);
     return response.data;
   },
 
-  async approveRequest(requestId: string, adminNotes?: string): Promise<any> {
-    const response = await api.post(`/admin/requests/${requestId}/approve`, { adminNotes });
+  async approveRequest(
+    requestId: string,
+    adminNotes?: string
+  ): Promise<RequestActionResponse> {
+    const response = await api.post(`/admin/requests/${requestId}/approve`, {
+      adminNotes,
+    });
     return response.data;
   },
 
-  async rejectRequest(requestId: string, adminNotes?: string): Promise<any> {
-    const response = await api.post(`/admin/requests/${requestId}/reject`, { adminNotes });
+  async rejectRequest(
+    requestId: string,
+    adminNotes?: string
+  ): Promise<RequestActionResponse> {
+    const response = await api.post(`/admin/requests/${requestId}/reject`, {
+      adminNotes,
+    });
     return response.data;
   },
 
-  async getRequestStats(): Promise<{
-    total: number;
-    pending: number;
-    approved: number;
-    rejected: number;
-    byType: any[];
-  }> {
+  async getRequestStats(): Promise<RequestStats> {
     const response = await api.get("/admin/requests/stats");
     return response.data.data;
   },
 };
+
+// ============================================
+// SOLICITAÇÕES DE PLANOS/CRÉDITOS
+// ============================================
+
+export interface PlanRequest {
+  id: string;
+  companyId: string;
+  company: {
+    id: string;
+    name: string;
+    user: {
+      email: string;
+    };
+  };
+  type: "PLAN_SUBSCRIPTION" | "CREDIT_PURCHASE";
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  planId?: string;
+  plan?: SubscriptionPlan;
+  packageId?: string;
+  package?: CreditPackage;
+  message?: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  adminNotes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RequestActionResponse {
+  success: boolean;
+  message: string;
+  request: PlanRequest;
+}
+
+export interface RequestStats {
+  total: number;
+  pending: number;
+  approved: number;
+  rejected: number;
+  byType: Array<{
+    type: string;
+    count: number;
+  }>;
+}
 
 // ============================================
 // CANDIDATURA A VAGAS (CANDIDATO)
@@ -1059,6 +1297,42 @@ export interface ApplicationData {
   portfolio?: string;
   availability?: string;
   expectedSalary?: number;
+}
+
+export interface Application {
+  id: string;
+  jobId: string;
+  candidateId: string;
+  job: {
+    id: string;
+    title: string;
+    company: {
+      name: string;
+      logo?: string;
+    };
+  };
+  coverLetter?: string;
+  status:
+    | "NEW"
+    | "VIEWED"
+    | "IN_REVIEW"
+    | "INTERVIEW"
+    | "REJECTED"
+    | "ACCEPTED";
+  timeline: Array<{
+    status: string;
+    date: string;
+    note?: string;
+  }>;
+  notes?: string;
+  appliedAt: string;
+  updatedAt: string;
+}
+
+export interface ApplicationResponse {
+  success: boolean;
+  message: string;
+  application: Application;
 }
 
 export const applicationApi = {
@@ -1078,24 +1352,29 @@ export const applicationApi = {
     return response.data;
   },
 
-  async apply(jobId: string, data: ApplicationData): Promise<any> {
+  async apply(
+    jobId: string,
+    data: ApplicationData
+  ): Promise<ApplicationResponse> {
     const response = await api.post(`/applications/jobs/${jobId}/apply`, data);
     return response.data;
   },
 
-  async getMyApplications(status?: string): Promise<any[]> {
+  async getMyApplications(status?: string): Promise<Application[]> {
     const response = await api.get("/applications/my", {
       params: { status },
     });
     return response.data;
   },
 
-  async getApplicationDetails(applicationId: string): Promise<any> {
+  async getApplicationDetails(applicationId: string): Promise<Application> {
     const response = await api.get(`/applications/${applicationId}`);
     return response.data;
   },
 
-  async withdrawApplication(applicationId: string): Promise<any> {
+  async withdrawApplication(
+    applicationId: string
+  ): Promise<{ success: boolean; message: string }> {
     const response = await api.delete(`/applications/${applicationId}`);
     return response.data;
   },
@@ -1106,7 +1385,10 @@ export const applicationApi = {
 // ============================================
 
 export const companyApplicationApi = {
-  async getAll(filters?: { jobId?: string; status?: string }): Promise<any[]> {
+  async getAll(filters?: {
+    jobId?: string;
+    status?: string;
+  }): Promise<Application[]> {
     const response = await api.get("/company/applications", {
       params: filters,
     });
@@ -1121,7 +1403,7 @@ export const companyApplicationApi = {
     return response.data;
   },
 
-  async getDetails(applicationId: string): Promise<any> {
+  async getDetails(applicationId: string): Promise<Application> {
     const response = await api.get(`/company/applications/${applicationId}`);
     return response.data;
   },
@@ -1130,7 +1412,7 @@ export const companyApplicationApi = {
     applicationId: string,
     status: string,
     note?: string
-  ): Promise<any> {
+  ): Promise<Application> {
     const response = await api.patch(
       `/company/applications/${applicationId}/status`,
       { status, note }
@@ -1138,7 +1420,10 @@ export const companyApplicationApi = {
     return response.data;
   },
 
-  async updateNotes(applicationId: string, internalNotes: string): Promise<any> {
+  async updateNotes(
+    applicationId: string,
+    internalNotes: string
+  ): Promise<Application> {
     const response = await api.patch(
       `/company/applications/${applicationId}/notes`,
       { internalNotes }
