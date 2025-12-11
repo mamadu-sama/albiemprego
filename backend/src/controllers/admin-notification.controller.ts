@@ -31,8 +31,11 @@ export class AdminNotificationController {
         userFilter.type = "CANDIDATO";
       } else if (recipients === "companies") {
         userFilter.type = "EMPRESA";
+      } else if (recipients === "all") {
+        // Todos os utilizadores ativos (exceto admins para não poluir)
+        userFilter.type = { in: ["CANDIDATO", "EMPRESA"] };
       }
-      // Se recipients === "all", não adiciona filtro de tipo
+      // Se recipients === "all", envia para candidatos e empresas
 
       // Buscar utilizadores
       const users = await prisma.user.findMany({

@@ -6,7 +6,7 @@ import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { CookieConsent } from "@/components/CookieConsent";
 import { MaintenanceProvider, useMaintenance } from "@/contexts/MaintenanceContext";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { MaintenanceBanner } from "@/components/MaintenanceBanner";
 import Index from "./pages/Index";
 import Vagas from "./pages/Vagas";
@@ -88,12 +88,20 @@ function MessageNotificationProvider({ children }: { children: React.ReactNode }
 function AppContent() {
   const location = useLocation();
   const { isMaintenanceMode } = useMaintenance();
+  const { user } = useAuth();
   
-  // Check if current route is an admin route
-  const isAdminRoute = location.pathname.startsWith('/admin');
+  // Check if current user is admin (case-insensitive)
+  const isAdmin = user?.type?.toUpperCase() === 'ADMIN';
+  
+  // Debug logs
+  console.log("🔍 App - Modo de manutenção:", isMaintenanceMode);
+  console.log("👤 App - Utilizador:", user?.type);
+  console.log("🔒 App - É admin:", isAdmin);
   
   // Show maintenance page for non-admin users when maintenance mode is active
-  if (isMaintenanceMode && !isAdminRoute) {
+  // Admins podem navegar normalmente mesmo em modo de manutenção
+  if (isMaintenanceMode && !isAdmin) {
+    console.log("🚧 Redirecionando para página de manutenção");
     return <Manutencao />;
   }
 

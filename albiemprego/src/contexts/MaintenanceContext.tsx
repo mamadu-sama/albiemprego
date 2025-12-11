@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import { maintenanceApi } from "@/lib/admin-api";
 
 interface MaintenanceBanner {
   id: string;
@@ -73,6 +74,44 @@ export function MaintenanceProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("maintenanceBannerDismissed", "true");
     setMaintenanceBanner(null);
   };
+
+  // Sincronizar com backend a cada 30 segundos
+  useEffect(() => {
+    const checkMaintenanceStatus = async () => {
+      try {
+        const data = await maintenanceApi.getStatus();
+        
+        console.log("🔄 Verificando status de manutenção:", data); // Debug
+        
+        // Atualizar estado se diferente
+        if (data.enabled !== isMaintenanceMode) {
+          console.log(`🔧 Modo de manutenção mudou: ${isMaintenanceMode} → ${data.enabled}`); // Debug
+          setMaintenanceMode(data.enabled);
+          localStorage.setItem("maintenanceMode", String(data.enabled));
+        }
+
+        if (data.message && data.message !== maintenanceMessage) {
+          setMaintenanceMessage(data.message);
+          localStorage.setItem("maintenanceMessage", data.message);
+        }
+
+        if (data.estimatedEndTime && data.estimatedEndTime !== estimatedEndTime) {
+          setEstimatedEndTime(data.estimatedEndTime);
+          localStorage.setItem("maintenanceEstimatedTime", data.estimatedEndTime);
+        }
+      } catch (error) {
+        console.error("Erro ao verificar modo de manutenção:", error);
+      }
+    };
+
+    // Verificar imediatamente
+    checkMaintenanceStatus();
+
+    // Verificar a cada 10 segundos (mais frequente para teste)
+    const interval = setInterval(checkMaintenanceStatus, 10000);
+
+    return () => clearInterval(interval);
+  }, [isMaintenanceMode, maintenanceMessage, estimatedEndTime]);
 
   return (
     <MaintenanceContext.Provider

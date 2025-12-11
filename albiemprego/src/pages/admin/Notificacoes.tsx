@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,6 +27,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 import { useMaintenance } from "@/contexts/MaintenanceContext";
+import { adminNotificationApi, adminMaintenanceApi } from "@/lib/admin-api";
 import { 
   Send, 
   Bell, 
@@ -42,7 +43,8 @@ import {
   Trash2,
   Wrench,
   Power,
-  Clock
+  Clock,
+  Loader2
 } from "lucide-react";
 import type { NotificationType } from "@/components/NotificationCenter";
 
@@ -73,29 +75,6 @@ const recipientOptions = [
   { value: "companies", label: "Apenas Empresas", icon: Building2 },
 ];
 
-const mockSentNotifications: SentNotification[] = [
-  {
-    id: "1",
-    title: "Nova Funcionalidade Disponível",
-    message: "Agora pode filtrar vagas por regime de trabalho remoto.",
-    type: "announcement",
-    recipients: "all",
-    sentAt: new Date(Date.now() - 1000 * 60 * 60 * 2),
-    readCount: 245,
-    totalRecipients: 500,
-  },
-  {
-    id: "2",
-    title: "Manutenção Programada",
-    message: "O sistema estará em manutenção no domingo das 02h às 04h.",
-    type: "maintenance",
-    recipients: "all",
-    sentAt: new Date(Date.now() - 1000 * 60 * 60 * 24),
-    readCount: 412,
-    totalRecipients: 500,
-  },
-];
-
 const typeColors: Record<NotificationType | "maintenance", string> = {
   info: "bg-blue-100 text-blue-700 border-blue-200",
   success: "bg-green-100 text-green-700 border-green-200",
@@ -123,7 +102,41 @@ export default function AdminNotificacoes() {
   const [recipients, setRecipients] = useState<"all" | "candidates" | "companies">("all");
   const [sendEmail, setSendEmail] = useState(false);
   const [sending, setSending] = useState(false);
-  const [sentNotifications, setSentNotifications] = useState<SentNotification[]>(mockSentNotifications);
+  const [sentNotifications, setSentNotifications] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  // Carregar histórico ao montar
+  useEffect(() => {
+    fetchHistory();
+    syncMaintenanceMode();
+  }, []);
+
+  const syncMaintenanceMode = async () => {
+    try {
+      const maintenanceData = await adminMaintenanceApi.getStatus();
+      setMaintenanceMode(maintenanceData.enabled);
+      if (maintenanceData.message) {
+        setMaintenanceMessage(maintenanceData.message);
+      }
+      if (maintenanceData.estimatedEndTime) {
+        setEstimatedEndTime(maintenanceData.estimatedEndTime);
+      }
+    } catch (error) {
+      console.error("Erro ao sincronizar modo de manutenção:", error);
+    }
+  };
+
+  const fetchHistory = async () => {
+    try {
+      setLoadingHistory(true);
+      const data = await adminNotificationApi.getHistory();
+      setSentNotifications(data.notifications || []);
+    } catch (error) {
+      console.error("Erro ao carregar histórico:", error);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
 
   const handleSend = async () => {
     if (!title.trim() || !message.trim()) {
@@ -137,67 +150,126 @@ export default function AdminNotificacoes() {
 
     setSending(true);
     
-    // Simulate sending
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    // If it's a maintenance notification, show the banner
-    if (type === "maintenance") {
-      setMaintenanceBanner({
-        id: Date.now().toString(),
+    try {
+      await adminNotificationApi.send({
         title: title.trim(),
         message: message.trim(),
-        sentAt: new Date(),
+        type: type, // Será convertido para uppercase no admin-api.ts
+        recipients,
+        sendEmail,
+      });
+
+      // Se for notificação de manutenção, mostrar banner
+      if (type === "maintenance") {
+        setMaintenanceBanner({
+          id: Date.now().toString(),
+          title: title.trim(),
+          message: message.trim(),
+          sentAt: new Date(),
+        });
+      }
+
+      toast({
+        title: type === "maintenance" ? "Aviso de manutenção enviado" : "Notificação enviada",
+        description: type === "maintenance" 
+          ? "O banner de manutenção está agora visível para todos os utilizadores."
+          : `A notificação foi enviada com sucesso${sendEmail ? " (incluindo email)" : ""}.`,
+      });
+
+      // Limpar formulário
+      setTitle("");
+      setMessage("");
+      setType("info");
+      setRecipients("all");
+      setSendEmail(false);
+
+      // Recarregar histórico
+      fetchHistory();
+    } catch (error: any) {
+      toast({
+        title: "Erro ao enviar notificação",
+        description: error.response?.data?.message || "Ocorreu um erro",
+        variant: "destructive",
+      });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleMaintenanceModeToggle = async (enabled: boolean) => {
+    try {
+      const payload: any = {
+        enabled,
+      };
+
+      // Só incluir message se tiver valor e estiver ativando
+      if (enabled && maintenanceMessage && maintenanceMessage.trim()) {
+        payload.message = maintenanceMessage.trim();
+      } else if (enabled) {
+        payload.message = "Estamos a realizar melhorias na plataforma. Voltaremos em breve!";
+      }
+
+      // Só incluir estimatedEndTime se tiver valor e estiver ativando
+      if (enabled && estimatedEndTime && estimatedEndTime.trim()) {
+        payload.estimatedEndTime = estimatedEndTime;
+      }
+
+      console.log("Enviando payload de manutenção:", payload); // Debug
+
+      const response = await adminMaintenanceApi.update(payload);
+      
+      console.log("Resposta do backend:", response); // Debug
+
+      // Atualizar contexto
+      setMaintenanceMode(enabled);
+      
+      if (enabled) {
+        setMaintenanceMessage(payload.message);
+        if (payload.estimatedEndTime) {
+          setEstimatedEndTime(payload.estimatedEndTime);
+        }
+      }
+
+      console.log("Estado atualizado - isMaintenanceMode:", enabled); // Debug
+
+      toast({
+        title: enabled ? "Modo de manutenção ativado" : "Modo de manutenção desativado",
+        description: enabled 
+          ? "Os utilizadores verão a página de manutenção ao aceder à plataforma."
+          : "A plataforma está novamente acessível aos utilizadores.",
+      });
+
+      // Forçar re-sincronização após 1 segundo
+      setTimeout(() => {
+        syncMaintenanceMode();
+      }, 1000);
+    } catch (error: any) {
+      console.error("Erro ao alterar modo de manutenção:", error);
+      const errorMessage = error.response?.data?.message || error.response?.data?.errors?.[0]?.msg || "Ocorreu um erro";
+      console.error("Detalhes do erro:", error.response?.data); // Debug
+      toast({
+        title: "Erro ao alterar modo de manutenção",
+        description: errorMessage,
+        variant: "destructive",
       });
     }
-
-    const newNotification: SentNotification = {
-      id: Date.now().toString(),
-      title: title.trim(),
-      message: message.trim(),
-      type,
-      recipients,
-      sentAt: new Date(),
-      readCount: 0,
-      totalRecipients: recipients === "all" ? 500 : recipients === "candidates" ? 380 : 120,
-    };
-
-    setSentNotifications(prev => [newNotification, ...prev]);
-    
-    setTitle("");
-    setMessage("");
-    setType("info");
-    setRecipients("all");
-    setSendEmail(false);
-    setSending(false);
-
-    toast({
-      title: type === "maintenance" ? "Aviso de manutenção enviado" : "Notificação enviada",
-      description: type === "maintenance" 
-        ? "O banner de manutenção está agora visível para todos os utilizadores."
-        : `A notificação foi enviada para ${
-            recipients === "all" ? "todos os utilizadores" :
-            recipients === "candidates" ? "todos os candidatos" :
-            "todas as empresas"
-          }${sendEmail ? " (incluindo email)" : ""}.`,
-    });
   };
 
-  const handleMaintenanceModeToggle = (enabled: boolean) => {
-    setMaintenanceMode(enabled);
-    toast({
-      title: enabled ? "Modo de manutenção ativado" : "Modo de manutenção desativado",
-      description: enabled 
-        ? "Os utilizadores verão a página de manutenção ao aceder à plataforma."
-        : "A plataforma está novamente acessível aos utilizadores.",
-    });
-  };
-
-  const deleteNotification = (id: string) => {
-    setSentNotifications(prev => prev.filter(n => n.id !== id));
-    toast({
-      title: "Notificação eliminada",
-      description: "A notificação foi removida do histórico.",
-    });
+  const deleteNotification = async (id: string) => {
+    try {
+      await adminNotificationApi.delete(id);
+      toast({
+        title: "Notificação eliminada",
+        description: "A notificação foi removida do histórico.",
+      });
+      fetchHistory();
+    } catch (error: any) {
+      toast({
+        title: "Erro ao eliminar notificação",
+        description: error.response?.data?.message || "Ocorreu um erro",
+        variant: "destructive",
+      });
+    }
   };
 
   const formatDate = (date: Date) => {
@@ -528,7 +600,12 @@ export default function AdminNotificacoes() {
                 Lista de notificações enviadas recentemente.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+              <CardContent>
+              {loadingHistory ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -541,8 +618,8 @@ export default function AdminNotificacoes() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sentNotifications.map((notification) => (
-                    <TableRow key={notification.id}>
+                  {sentNotifications.map((notification, idx) => (
+                    <TableRow key={idx}>
                       <TableCell>
                         <div className="max-w-xs">
                           <p className="font-medium truncate">{notification.title}</p>
@@ -552,32 +629,26 @@ export default function AdminNotificacoes() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={typeColors[notification.type]}>
+                        <Badge variant="outline" className={typeColors[notification.type as any] || "bg-gray-100"}>
                           {getTypeLabel(notification.type)}
                         </Badge>
                       </TableCell>
-                      <TableCell>{getRecipientLabel(notification.recipients)}</TableCell>
+                      <TableCell>Todos</TableCell>
                       <TableCell className="text-muted-foreground">
-                        {formatDate(notification.sentAt)}
+                        {formatDate(new Date(notification.sentAt))}
                       </TableCell>
                       <TableCell className="text-center">
                         <span className="font-medium">{notification.readCount}</span>
                         <span className="text-muted-foreground">/{notification.totalRecipients}</span>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-muted-foreground hover:text-destructive"
-                          onClick={() => deleteNotification(notification.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <span className="text-muted-foreground text-sm">-</span>
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
+              )}
             </CardContent>
           </Card>
         </div>

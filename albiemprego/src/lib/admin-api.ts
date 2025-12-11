@@ -235,7 +235,27 @@ export const adminNotificationApi = {
     actionUrl?: string;
     actionLabel?: string;
   }) => {
-    const response = await api.post("/admin/notifications", data);
+    // Limpar actionUrl e actionLabel se estiverem vazios
+    const payload: any = {
+      title: data.title,
+      message: data.message,
+      type: data.type.toUpperCase(), // Garantir uppercase
+      recipients: data.recipients,
+    };
+
+    if (data.sendEmail !== undefined) {
+      payload.sendEmail = data.sendEmail;
+    }
+
+    if (data.actionUrl && data.actionUrl.trim()) {
+      payload.actionUrl = data.actionUrl;
+    }
+
+    if (data.actionLabel && data.actionLabel.trim()) {
+      payload.actionLabel = data.actionLabel;
+    }
+
+    const response = await api.post("/admin/notifications", payload);
     return response.data;
   },
 

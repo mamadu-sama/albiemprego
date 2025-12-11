@@ -30,13 +30,21 @@ export const sendNotificationValidation = [
     .withMessage("SendEmail deve ser um valor booleano"),
 
   body("actionUrl")
-    .optional()
-    .trim()
-    .isURL()
-    .withMessage("URL de ação inválida"),
+    .optional({ nullable: true, checkFalsy: true })
+    .custom((value) => {
+      // Se não existe ou é vazio, ok
+      if (!value || value.trim() === "") return true;
+      // Se existe, validar URL
+      try {
+        new URL(value);
+        return true;
+      } catch {
+        throw new Error("URL de ação inválida");
+      }
+    }),
 
   body("actionLabel")
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .trim()
     .isLength({ max: 50 })
     .withMessage("Label de ação deve ter no máximo 50 caracteres"),

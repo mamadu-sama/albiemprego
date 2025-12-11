@@ -47,44 +47,83 @@ import {
   Mail,
   UserCheck,
   Users,
-  CheckCircle2
+  CheckCircle2,
+  Loader2
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-
-const mockUsers = [
-  { id: 1, name: "João Silva", email: "joao.silva@email.com", type: "candidato", status: "active", registeredAt: "2024-01-10", applications: 5 },
-  { id: 2, name: "Maria Santos", email: "maria.santos@email.com", type: "candidato", status: "active", registeredAt: "2024-01-08", applications: 12 },
-  { id: 3, name: "Pedro Costa", email: "pedro.costa@email.com", type: "candidato", status: "suspended", registeredAt: "2024-01-05", applications: 3 },
-  { id: 4, name: "Ana Ferreira", email: "ana.ferreira@email.com", type: "candidato", status: "active", registeredAt: "2024-01-03", applications: 8 },
-  { id: 5, name: "Carlos Mendes", email: "carlos.mendes@email.com", type: "empresa", status: "active", registeredAt: "2024-01-02", applications: 0 },
-  { id: 6, name: "Sofia Oliveira", email: "sofia.oliveira@email.com", type: "candidato", status: "pending", registeredAt: "2024-01-15", applications: 0 },
-];
+import { adminUserApi, AdminUser } from "@/lib/admin-api";
 
 export default function AdminUtilizadores() {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [users, setUsers] = useState(mockUsers);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({ total: 0, active: 0, candidates: 0, companies: 0 });
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogAction, setDialogAction] = useState<{ type: 'suspend' | 'delete' | 'activate', user: typeof mockUsers[0] } | null>(null);
+  const [dialogAction, setDialogAction] = useState<{ type: 'suspend' | 'delete' | 'activate', user: AdminUser } | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = typeFilter === "all" || user.type === typeFilter;
-    const matchesStatus = statusFilter === "all" || user.status === statusFilter;
-    return matchesSearch && matchesType && matchesStatus;
-  });
+  // Carregar utilizadores
+  useEffect(() => {
+    fetchUsers();
+  }, [page, typeFilter, statusFilter, searchTerm]);
+
+  // Carregar estatísticas
+  useEffect(() => {
+    fetchStats();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const data = await adminUserApi.list({
+        type: typeFilter !== "all" ? typeFilter : undefined,
+        status: statusFilter !== "all" ? statusFilter : undefined,
+        search: searchTerm || undefined,
+        page,
+        limit: 20,
+      });
+      setUsers(data.users);
+      setTotalPages(data.pagination.totalPages);
+    } catch (error: any) {
+      toast({
+        title: "Erro ao carregar utilizadores",
+        description: error.response?.data?.message || "Ocorreu um erro",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchStats = async () => {
+    try {
+      const data = await adminUserApi.getStats();
+      setStats({
+        total: data.total,
+        active: data.active,
+        candidates: data.byType.candidates,
+        companies: data.byType.companies,
+      });
+    } catch (error) {
+      console.error("Erro ao carregar estatísticas:", error);
+    }
+  };
+
+  const filteredUsers = users;
 
   const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "active":
+    const statusUpper = status.toUpperCase();
+    switch (statusUpper) {
+      case "ACTIVE":
         return <Badge className="bg-green-100 text-green-700 hover:bg-green-100">Ativo</Badge>;
-      case "suspended":
+      case "SUSPENDED":
         return <Badge variant="destructive">Suspenso</Badge>;
-      case "pending":
+      case "PENDING":
         return <Badge variant="secondary">Pendente</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
@@ -92,40 +131,71 @@ export default function AdminUtilizadores() {
   };
 
   const getTypeBadge = (type: string) => {
-    return type === "candidato" 
+    const typeUpper = type.toUpperCase();
+    return typeUpper === "CANDIDATO" 
       ? <Badge variant="outline">Candidato</Badge>
       : <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">Empresa</Badge>;
   };
 
-  const handleSuspend = (user: typeof mockUsers[0]) => {
-    setUsers(prev => prev.map(u => u.id === user.id ? { ...u, status: 'suspended' } : u));
-    toast({
-      title: "Utilizador suspenso",
-      description: `${user.name} foi suspenso com sucesso.`,
-    });
-    setDialogOpen(false);
+  const handleSuspend = async (user: AdminUser) => {
+    try {
+      await adminUserApi.updateStatus(user.id, "SUSPENDED");
+      toast({
+        title: "Utilizador suspenso",
+        description: `${user.name} foi suspenso com sucesso.`,
+      });
+      setDialogOpen(false);
+      fetchUsers();
+      fetchStats();
+    } catch (error: any) {
+      toast({
+        title: "Erro ao suspender utilizador",
+        description: error.response?.data?.message || "Ocorreu um erro",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleActivate = (user: typeof mockUsers[0]) => {
-    setUsers(prev => prev.map(u => u.id === user.id ? { ...u, status: 'active' } : u));
-    toast({
-      title: "Utilizador ativado",
-      description: `${user.name} foi ativado com sucesso.`,
-    });
-    setDialogOpen(false);
+  const handleActivate = async (user: AdminUser) => {
+    try {
+      await adminUserApi.updateStatus(user.id, "ACTIVE");
+      toast({
+        title: "Utilizador ativado",
+        description: `${user.name} foi ativado com sucesso.`,
+      });
+      setDialogOpen(false);
+      fetchUsers();
+      fetchStats();
+    } catch (error: any) {
+      toast({
+        title: "Erro ao ativar utilizador",
+        description: error.response?.data?.message || "Ocorreu um erro",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleDelete = (user: typeof mockUsers[0]) => {
-    setUsers(prev => prev.filter(u => u.id !== user.id));
-    toast({
-      title: "Utilizador eliminado",
-      description: `${user.name} foi eliminado permanentemente.`,
-      variant: "destructive",
-    });
-    setDialogOpen(false);
+  const handleDelete = async (user: AdminUser) => {
+    try {
+      await adminUserApi.delete(user.id);
+      toast({
+        title: "Utilizador eliminado",
+        description: `${user.name} foi eliminado permanentemente.`,
+        variant: "destructive",
+      });
+      setDialogOpen(false);
+      fetchUsers();
+      fetchStats();
+    } catch (error: any) {
+      toast({
+        title: "Erro ao eliminar utilizador",
+        description: error.response?.data?.message || "Ocorreu um erro",
+        variant: "destructive",
+      });
+    }
   };
 
-  const openDialog = (type: 'suspend' | 'delete' | 'activate', user: typeof mockUsers[0]) => {
+  const openDialog = (type: 'suspend' | 'delete' | 'activate', user: AdminUser) => {
     setDialogAction({ type, user });
     setDialogOpen(true);
   };
@@ -199,7 +269,7 @@ export default function AdminUtilizadores() {
                   <Users className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{users.length}</p>
+                  <p className="text-2xl font-bold">{stats.total}</p>
                   <p className="text-sm text-muted-foreground">Total</p>
                 </div>
               </CardContent>
@@ -210,7 +280,7 @@ export default function AdminUtilizadores() {
                   <UserCheck className="h-5 w-5 text-green-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{users.filter(u => u.status === 'active').length}</p>
+                  <p className="text-2xl font-bold">{stats.active}</p>
                   <p className="text-sm text-muted-foreground">Ativos</p>
                 </div>
               </CardContent>
@@ -221,7 +291,7 @@ export default function AdminUtilizadores() {
                   <Users className="h-5 w-5 text-orange-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{users.filter(u => u.type === 'candidato').length}</p>
+                  <p className="text-2xl font-bold">{stats.candidates}</p>
                   <p className="text-sm text-muted-foreground">Candidatos</p>
                 </div>
               </CardContent>
@@ -232,7 +302,7 @@ export default function AdminUtilizadores() {
                   <Users className="h-5 w-5 text-blue-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{users.filter(u => u.type === 'empresa').length}</p>
+                  <p className="text-2xl font-bold">{stats.companies}</p>
                   <p className="text-sm text-muted-foreground">Empresas</p>
                 </div>
               </CardContent>
@@ -280,6 +350,16 @@ export default function AdminUtilizadores() {
           {/* Users Table */}
           <Card>
             <CardContent className="p-0">
+              {loading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : filteredUsers.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                  <Users className="h-12 w-12 mb-4" />
+                  <p>Nenhum utilizador encontrado</p>
+                </div>
+              ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -302,8 +382,8 @@ export default function AdminUtilizadores() {
                       </TableCell>
                       <TableCell>{getTypeBadge(user.type)}</TableCell>
                       <TableCell>{getStatusBadge(user.status)}</TableCell>
-                      <TableCell>{user.registeredAt}</TableCell>
-                      <TableCell>{user.applications}</TableCell>
+                      <TableCell>{new Date(user.createdAt).toLocaleDateString('pt-PT')}</TableCell>
+                      <TableCell>{user.applicationCount || 0}</TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -325,7 +405,7 @@ export default function AdminUtilizadores() {
                               </Link>
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            {user.status === "active" ? (
+                            {user.status.toUpperCase() === "ACTIVE" ? (
                               <DropdownMenuItem 
                                 className="text-orange-600"
                                 onClick={() => openDialog('suspend', user)}
@@ -333,7 +413,7 @@ export default function AdminUtilizadores() {
                                 <Ban className="h-4 w-4 mr-2" />
                                 Suspender
                               </DropdownMenuItem>
-                            ) : user.status === "suspended" ? (
+                            ) : user.status.toUpperCase() === "SUSPENDED" ? (
                               <DropdownMenuItem 
                                 className="text-green-600"
                                 onClick={() => openDialog('activate', user)}
@@ -356,8 +436,34 @@ export default function AdminUtilizadores() {
                   ))}
                 </TableBody>
               </Table>
+              )}
             </CardContent>
           </Card>
+          
+          {/* Paginação */}
+          {!loading && totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+              >
+                Anterior
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                Página {page} de {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+              >
+                Próxima
+              </Button>
+            </div>
+          )}
         </div>
       </main>
       <Footer />

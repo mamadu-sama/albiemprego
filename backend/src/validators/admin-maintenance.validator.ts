@@ -3,23 +3,20 @@ import { body } from "express-validator";
 
 export const updateMaintenanceValidation = [
   body("enabled")
-    .optional()
+    .optional({ nullable: true })
     .isBoolean()
     .withMessage("Enabled deve ser um valor booleano"),
 
   body("message")
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .trim()
     .isLength({ max: 500 })
     .withMessage("Mensagem deve ter no máximo 500 caracteres"),
 
   body("estimatedEndTime")
-    .optional()
-    .custom((value) => {
-      if (value === null) return true;
-      const date = new Date(value);
-      return !isNaN(date.getTime());
-    })
-    .withMessage("Tempo estimado deve ser uma data válida ou null"),
+    .optional({ nullable: true, checkFalsy: true })
+    .trim()
+    .isLength({ max: 200 })
+    .withMessage("Previsão de retorno deve ter no máximo 200 caracteres"),
 ];
 

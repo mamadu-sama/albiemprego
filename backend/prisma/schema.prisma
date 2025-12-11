@@ -449,7 +449,7 @@ model MaintenanceMode {
   id               String    @id @default(uuid())
   enabled          Boolean   @default(false)
   message          String?
-  estimatedEndTime DateTime?
+  estimatedEndTime String?   // Texto livre: "hoje", "amanhã", "14:00", etc
   updatedAt        DateTime  @updatedAt
 
   @@map("maintenance_mode")

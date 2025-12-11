@@ -10,8 +10,10 @@ export class AdminMaintenanceController {
    */
   static async getMaintenanceStatus(req: Request, res: Response) {
     try {
-      // Buscar ou criar registro de manutenção
-      let maintenance = await prisma.maintenanceMode.findFirst();
+      // Buscar registro mais recente de manutenção
+      let maintenance = await prisma.maintenanceMode.findFirst({
+        orderBy: { updatedAt: "desc" },
+      });
 
       if (!maintenance) {
         // Criar registro inicial se não existir
@@ -23,7 +25,9 @@ export class AdminMaintenanceController {
         });
       }
 
-      logger.info("Admin consultou estado de manutenção");
+      logger.info("Admin consultou estado de manutenção", {
+        enabled: maintenance.enabled,
+      });
 
       return res.status(200).json(maintenance);
     } catch (error) {
@@ -48,8 +52,10 @@ export class AdminMaintenanceController {
 
       const { enabled, message, estimatedEndTime } = req.body;
 
-      // Buscar ou criar registro
-      let maintenance = await prisma.maintenanceMode.findFirst();
+      // Buscar registro mais recente
+      let maintenance = await prisma.maintenanceMode.findFirst({
+        orderBy: { updatedAt: "desc" },
+      });
 
       if (!maintenance) {
         // Criar se não existir
@@ -57,7 +63,7 @@ export class AdminMaintenanceController {
           data: {
             enabled: enabled ?? false,
             message: message || "Estamos a realizar melhorias na plataforma. Voltaremos em breve!",
-            estimatedEndTime: estimatedEndTime ? new Date(estimatedEndTime) : null,
+            estimatedEndTime: estimatedEndTime || null,
           },
         });
       } else {
@@ -73,7 +79,7 @@ export class AdminMaintenanceController {
         }
 
         if (estimatedEndTime !== undefined) {
-          updateData.estimatedEndTime = estimatedEndTime ? new Date(estimatedEndTime) : null;
+          updateData.estimatedEndTime = estimatedEndTime || null;
         }
 
         maintenance = await prisma.maintenanceMode.update({
@@ -83,7 +89,11 @@ export class AdminMaintenanceController {
       }
 
       logger.info(
-        `Admin ${maintenance.enabled ? "ativou" : "desativou"} modo de manutenção`
+        `Admin ${maintenance.enabled ? "ativou" : "desativou"} modo de manutenção`,
+        {
+          id: maintenance.id,
+          enabled: maintenance.enabled,
+        }
       );
 
       return res.status(200).json({
@@ -101,7 +111,10 @@ export class AdminMaintenanceController {
    */
   static async getPublicMaintenanceStatus(req: Request, res: Response) {
     try {
-      const maintenance = await prisma.maintenanceMode.findFirst();
+      // Buscar registro mais recente
+      const maintenance = await prisma.maintenanceMode.findFirst({
+        orderBy: { updatedAt: "desc" },
+      });
 
       if (!maintenance) {
         return res.status(200).json({
@@ -110,6 +123,10 @@ export class AdminMaintenanceController {
           estimatedEndTime: null,
         });
       }
+
+      logger.info("Status público de manutenção consultado", {
+        enabled: maintenance.enabled,
+      });
 
       // Retornar apenas informações públicas
       return res.status(200).json({
