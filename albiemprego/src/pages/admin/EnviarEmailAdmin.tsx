@@ -13,10 +13,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Link, useParams, useLocation } from "react-router-dom";
-import { ArrowLeft, Send, Paperclip } from "lucide-react";
-import { useState } from "react";
+import { Link, useParams, useLocation, useNavigate } from "react-router-dom";
+import { ArrowLeft, Send, Paperclip, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { adminUserApi, adminCompanyApi } from "@/lib/admin-api";
 
 const emailTemplates = [
   { 
@@ -96,29 +97,65 @@ Equipa AlbiEmprego`
 export default function EnviarEmailAdmin() {
   const { id } = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
   const { toast } = useToast();
   
   const isCompany = location.pathname.includes('/empresa/');
   const recipientType = isCompany ? 'empresa' : 'utilizador';
   
-  const mockRecipient = isCompany 
-    ? { name: "TechSolutions Lda", email: "contact@techsolutions.pt", avatar: "" }
-    : { name: "João Silva", email: "joao.silva@email.com", avatar: "" };
-
+  const [recipient, setRecipient] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSending, setIsSending] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
 
-  const handleTemplateChange = (templateId: string) => {
-    setSelectedTemplate(templateId);
-    const template = emailTemplates.find(t => t.id === templateId);
-    if (template) {
-      setSubject(template.subject.replace("[NOME]", mockRecipient.name));
-      setBody(template.body.replace(/\[NOME\]/g, mockRecipient.name));
+  useEffect(() => {
+    if (id) {
+      fetchRecipient();
+    }
+  }, [id, isCompany]);
+
+  const fetchRecipient = async () => {
+    try {
+      setIsLoading(true);
+      if (isCompany) {
+        const data = await adminCompanyApi.getDetails(id!);
+        setRecipient({
+          name: data.name,
+          email: data.user?.email,
+          avatar: data.logo,
+        });
+      } else {
+        const data = await adminUserApi.getDetails(id!);
+        setRecipient({
+          name: data.name,
+          email: data.email,
+          avatar: data.avatar,
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Erro ao carregar destinatário",
+        description: error.response?.data?.message || "Ocorreu um erro",
+        variant: "destructive",
+      });
+      navigate(isCompany ? "/admin/empresas" : "/admin/utilizadores");
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleSend = () => {
+  const handleTemplateChange = (templateId: string) => {
+    setSelectedTemplate(templateId);
+    const template = emailTemplates.find(t => t.id === templateId);
+    if (template && recipient) {
+      setSubject(template.subject.replace("[NOME]", recipient.name));
+      setBody(template.body.replace(/\[NOME\]/g, recipient.name));
+    }
+  };
+
+  const handleSend = async () => {
     if (!subject.trim() || !body.trim()) {
       toast({
         title: "Erro",
@@ -128,13 +165,52 @@ export default function EnviarEmailAdmin() {
       return;
     }
 
-    toast({
-      title: "Email enviado",
-      description: `Email enviado com sucesso para ${mockRecipient.email}`,
-    });
+    try {
+      setIsSending(true);
+      
+      if (isCompany) {
+        await adminCompanyApi.sendEmail(id!, subject.trim(), body.trim());
+      } else {
+        await adminUserApi.sendEmail(id!, subject.trim(), body.trim());
+      }
+
+      toast({
+        title: "Email enviado",
+        description: `Email enviado com sucesso para ${recipient.email}`,
+      });
+
+      // Voltar para o perfil após enviar
+      setTimeout(() => {
+        navigate(backUrl);
+      }, 1500);
+    } catch (error: any) {
+      toast({
+        title: "Erro ao enviar email",
+        description: error.response?.data?.message || "Ocorreu um erro",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const backUrl = isCompany ? `/admin/empresa/${id}` : `/admin/utilizador/${id}`;
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <Header />
+        <main className="flex-1 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!recipient) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -155,14 +231,14 @@ export default function EnviarEmailAdmin() {
               {/* Recipient Info */}
               <div className="flex items-center gap-4 p-4 bg-muted/50 rounded-lg">
                 <Avatar className="h-12 w-12">
-                  <AvatarImage src={mockRecipient.avatar} alt={mockRecipient.name} />
+                  <AvatarImage src={recipient.avatar} alt={recipient.name} />
                   <AvatarFallback className="bg-primary/10 text-primary">
-                    {mockRecipient.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                    {recipient.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <p className="font-medium">{mockRecipient.name}</p>
-                  <p className="text-sm text-muted-foreground">{mockRecipient.email}</p>
+                  <p className="font-medium">{recipient.name}</p>
+                  <p className="text-sm text-muted-foreground">{recipient.email}</p>
                 </div>
               </div>
 
@@ -217,12 +293,21 @@ export default function EnviarEmailAdmin() {
 
               {/* Actions */}
               <div className="flex gap-4 pt-4">
-                <Button variant="outline" className="flex-1" asChild>
+                <Button variant="outline" className="flex-1" asChild disabled={isSending}>
                   <Link to={backUrl}>Cancelar</Link>
                 </Button>
-                <Button className="flex-1" onClick={handleSend}>
-                  <Send className="h-4 w-4 mr-2" />
-                  Enviar Email
+                <Button className="flex-1" onClick={handleSend} disabled={isSending}>
+                  {isSending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      A enviar...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4 mr-2" />
+                      Enviar Email
+                    </>
+                  )}
                 </Button>
               </div>
             </CardContent>

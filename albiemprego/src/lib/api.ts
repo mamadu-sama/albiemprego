@@ -1443,4 +1443,69 @@ export const healthCheck = async (): Promise<{
   return response.data;
 };
 
+// ============================================
+// NOTIFICAÇÕES DE UTILIZADORES
+// ============================================
+
+export interface UserNotification {
+  id: string;
+  userId: string;
+  type: "INFO" | "SUCCESS" | "WARNING" | "ANNOUNCEMENT" | "PROMOTION" | "SYSTEM" | "MAINTENANCE";
+  title: string;
+  message: string;
+  read: boolean;
+  actionUrl?: string;
+  actionLabel?: string;
+  createdAt: string;
+}
+
+export const notificationApi = {
+  // Obter notificações do utilizador
+  async getNotifications(unreadOnly: boolean = false): Promise<UserNotification[]> {
+    const response = await api.get(`/notifications?unreadOnly=${unreadOnly}`);
+    return response.data;
+  },
+
+  // Obter contagem de não lidas
+  async getUnreadCount(): Promise<{ count: number }> {
+    const response = await api.get("/notifications/unread-count");
+    return response.data;
+  },
+
+  // Marcar como lida
+  async markAsRead(id: string): Promise<UserNotification> {
+    const response = await api.patch(`/notifications/${id}/read`);
+    return response.data;
+  },
+
+  // Marcar todas como lidas
+  async markAllAsRead(): Promise<{ message: string }> {
+    const response = await api.patch("/notifications/mark-all-read");
+    return response.data;
+  },
+
+  // Eliminar notificação
+  async deleteNotification(id: string): Promise<{ message: string }> {
+    const response = await api.delete(`/notifications/${id}`);
+    return response.data;
+  },
+
+  // Eliminar todas as lidas
+  async deleteAllRead(): Promise<{ message: string; count: number }> {
+    const response = await api.delete("/notifications/read/all");
+    return response.data;
+  },
+
+  // Obter notificações de manutenção (público, sem auth)
+  async getMaintenanceNotifications(): Promise<Array<{
+    id: string;
+    title: string;
+    message: string;
+    createdAt: string;
+  }>> {
+    const response = await api.get("/notifications/maintenance");
+    return response.data;
+  },
+};
+
 export default api;

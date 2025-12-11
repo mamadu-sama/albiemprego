@@ -30,6 +30,7 @@ import adminCompanyRoutes from "./routes/admin-company.routes";
 import adminJobRoutes from "./routes/admin-job.routes";
 import adminMaintenanceRoutes from "./routes/admin-maintenance.routes";
 import adminNotificationRoutes from "./routes/admin-notification.routes";
+import notificationRoutes from "./routes/notification.routes";
 import maintenanceRoutes from "./routes/maintenance.routes";
 import companySubscriptionRoutes from "./routes/company-subscription.routes";
 import companyPlanRequestRoutes from "./routes/company-plan-request.routes";
@@ -111,6 +112,7 @@ app.use("/api/v1/candidates", candidateRoutes);
 app.use("/api/v1/companies", companyRoutes);
 app.use("/api/v1/jobs", jobRoutes);
 app.use("/api/v1/saved-jobs", savedJobRoutes);
+app.use("/api/v1/notifications", notificationRoutes); // Notificações de utilizadores
 app.use("/api/v1/maintenance", maintenanceRoutes); // Rota pública
 app.use("/api/v1/admin", adminSubscriptionRoutes);
 app.use("/api/v1/admin", adminUserRoutes);

@@ -79,11 +79,29 @@ export function MaintenanceProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const checkMaintenanceStatus = async () => {
       try {
+        // Buscar notificações de manutenção públicas
+        const maintenanceNotifs = await fetch(
+          `${import.meta.env.VITE_API_URL || "http://localhost:3001/api/v1"}/notifications/maintenance`
+        ).then((r) => r.json());
+
+        console.log("🔄 Notificações de manutenção:", maintenanceNotifs); // Debug
+
+        // Se houver notificação de manutenção recente, exibir banner
+        if (maintenanceNotifs.length > 0) {
+          const notif = maintenanceNotifs[0];
+          setMaintenanceBanner({
+            id: notif.id,
+            title: notif.title,
+            message: notif.message,
+            sentAt: new Date(notif.createdAt),
+          });
+        }
+
+        // Também verifica o status geral de manutenção
         const data = await maintenanceApi.getStatus();
         
-        console.log("🔄 Verificando status de manutenção:", data); // Debug
+        console.log("🔄 Status de manutenção:", data); // Debug
         
-        // Atualizar estado se diferente
         if (data.enabled !== isMaintenanceMode) {
           console.log(`🔧 Modo de manutenção mudou: ${isMaintenanceMode} → ${data.enabled}`); // Debug
           setMaintenanceMode(data.enabled);
@@ -100,7 +118,7 @@ export function MaintenanceProvider({ children }: { children: ReactNode }) {
           localStorage.setItem("maintenanceEstimatedTime", data.estimatedEndTime);
         }
       } catch (error) {
-        console.error("Erro ao verificar modo de manutenção:", error);
+        console.error("Erro ao verificar manutenção:", error);
       }
     };
 

@@ -19,9 +19,12 @@ import {
   Trash2,
   CheckCircle2,
   AlertTriangle,
-  Send
+  Send,
+  Loader2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useState, useEffect } from "react";
+import { adminUserApi } from "@/lib/admin-api";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,83 +37,131 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-const mockUser = {
-  id: 1,
-  name: "João Silva",
-  email: "joao.silva@email.com",
-  phone: "+351 912 345 678",
-  location: "Castelo Branco",
-  type: "candidato",
-  status: "active",
-  registeredAt: "2024-01-10",
-  lastLogin: "2024-01-20 14:30",
-  avatar: "",
-  bio: "Profissional de TI com 5 anos de experiência em desenvolvimento web. Especializado em React e Node.js.",
-  applications: 5,
-  skills: ["JavaScript", "React", "Node.js", "TypeScript", "HTML/CSS"],
-  experience: [
-    {
-      company: "Tech Company",
-      position: "Desenvolvedor Frontend",
-      period: "2020 - Presente",
-      description: "Desenvolvimento de aplicações web modernas com React"
-    },
-    {
-      company: "Startup XYZ",
-      position: "Desenvolvedor Junior",
-      period: "2018 - 2020",
-      description: "Manutenção e desenvolvimento de features para plataforma SaaS"
-    }
-  ],
-  education: [
-    {
-      institution: "Instituto Politécnico de Castelo Branco",
-      degree: "Licenciatura em Engenharia Informática",
-      year: "2018"
-    }
-  ]
-};
-
 export default function AdminPerfilUtilizador() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  
+  const [user, setUser] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (id) {
+      fetchUser();
+    }
+  }, [id]);
+
+  const fetchUser = async () => {
+    try {
+      setIsLoading(true);
+      const data = await adminUserApi.getDetails(id!);
+      setUser(data);
+    } catch (error: any) {
+      toast({
+        title: "Erro ao carregar utilizador",
+        description: error.response?.data?.message || "Ocorreu um erro",
+        variant: "destructive",
+      });
+      navigate("/admin/utilizadores");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "active":
+    switch (status.toUpperCase()) {
+      case "ACTIVE":
         return <Badge className="bg-green-100 text-green-700 hover:bg-green-100">Ativo</Badge>;
-      case "suspended":
+      case "SUSPENDED":
         return <Badge variant="destructive">Suspenso</Badge>;
-      case "pending":
+      case "PENDING":
         return <Badge variant="secondary">Pendente</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
   };
 
-  const handleSuspend = () => {
-    toast({
-      title: "Utilizador suspenso",
-      description: `${mockUser.name} foi suspenso com sucesso.`,
+  const handleSuspend = async () => {
+    try {
+      await adminUserApi.updateStatus(id!, "SUSPENDED");
+      toast({
+        title: "Utilizador suspenso",
+        description: `${user.name} foi suspenso com sucesso.`,
+      });
+      fetchUser();
+    } catch (error: any) {
+      toast({
+        title: "Erro ao suspender",
+        description: error.response?.data?.message || "Ocorreu um erro",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleActivate = async () => {
+    try {
+      await adminUserApi.updateStatus(id!, "ACTIVE");
+      toast({
+        title: "Utilizador ativado",
+        description: `${user.name} foi ativado com sucesso.`,
+      });
+      fetchUser();
+    } catch (error: any) {
+      toast({
+        title: "Erro ao ativar",
+        description: error.response?.data?.message || "Ocorreu um erro",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDelete = async () => {
+    try {
+      await adminUserApi.delete(id!);
+      toast({
+        title: "Utilizador eliminado",
+        description: `${user.name} foi eliminado permanentemente.`,
+        variant: "destructive",
+      });
+      navigate("/admin/utilizadores");
+    } catch (error: any) {
+      toast({
+        title: "Erro ao eliminar",
+        description: error.response?.data?.message || "Ocorreu um erro",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const formatDate = (date: string) => {
+    return new Date(date).toLocaleDateString('pt-PT');
+  };
+
+  const formatDateTime = (date: string) => {
+    return new Date(date).toLocaleString('pt-PT', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
     });
   };
 
-  const handleActivate = () => {
-    toast({
-      title: "Utilizador ativado",
-      description: `${mockUser.name} foi ativado com sucesso.`,
-    });
-  };
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <Header />
+        <main className="flex-1 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
-  const handleDelete = () => {
-    toast({
-      title: "Utilizador eliminado",
-      description: `${mockUser.name} foi eliminado permanentemente.`,
-      variant: "destructive",
-    });
-    navigate("/admin/utilizadores");
-  };
+  if (!user) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -129,17 +180,17 @@ export default function AdminPerfilUtilizador() {
               <CardContent className="p-6">
                 <div className="flex flex-col items-center text-center">
                   <Avatar className="h-24 w-24 mb-4">
-                    <AvatarImage src={mockUser.avatar} alt={mockUser.name} />
+                    <AvatarImage src={user.avatar} alt={user.name} />
                     <AvatarFallback className="text-2xl bg-primary/10 text-primary">
-                      {mockUser.name.split(' ').map(n => n[0]).join('')}
+                      {user.name.split(' ').map((n: string) => n[0]).join('')}
                     </AvatarFallback>
                   </Avatar>
-                  <h2 className="text-xl font-bold">{mockUser.name}</h2>
+                  <h2 className="text-xl font-bold">{user.name}</h2>
                   <p className="text-muted-foreground mb-2">ID: {id}</p>
                   <div className="flex gap-2 mb-4">
-                    {getStatusBadge(mockUser.status)}
+                    {getStatusBadge(user.status)}
                     <Badge variant="outline">
-                      {mockUser.type === "candidato" ? "Candidato" : "Empresa"}
+                      {user.type === "CANDIDATO" ? "Candidato" : user.type === "EMPRESA" ? "Empresa" : "Admin"}
                     </Badge>
                   </div>
                   
@@ -148,19 +199,23 @@ export default function AdminPerfilUtilizador() {
                   <div className="w-full space-y-3 text-left">
                     <div className="flex items-center gap-3">
                       <Mail className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">{mockUser.email}</span>
+                      <span className="text-sm">{user.email}</span>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <Phone className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">{mockUser.phone}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <MapPin className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">{mockUser.location}</span>
-                    </div>
+                    {user.phone && (
+                      <div className="flex items-center gap-3">
+                        <Phone className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">{user.phone}</span>
+                      </div>
+                    )}
+                    {user.location && (
+                      <div className="flex items-center gap-3">
+                        <MapPin className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">{user.location}</span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-3">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">Registo: {mockUser.registeredAt}</span>
+                      <span className="text-sm">Registo: {formatDate(user.createdAt)}</span>
                     </div>
                   </div>
 
@@ -178,7 +233,7 @@ export default function AdminPerfilUtilizador() {
                       </Link>
                     </Button>
 
-                    {mockUser.status === "active" ? (
+                    {user.status === "ACTIVE" ? (
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button className="w-full" variant="outline">
@@ -190,7 +245,7 @@ export default function AdminPerfilUtilizador() {
                           <AlertDialogHeader>
                             <AlertDialogTitle>Suspender utilizador?</AlertDialogTitle>
                             <AlertDialogDescription>
-                              O utilizador {mockUser.name} será suspenso e não poderá aceder à plataforma.
+                              O utilizador {user.name} será suspenso e não poderá aceder à plataforma.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
@@ -236,98 +291,113 @@ export default function AdminPerfilUtilizador() {
             {/* Details */}
             <div className="lg:col-span-2 space-y-6">
               {/* Stats */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <Card>
-                  <CardContent className="p-4 text-center">
-                    <p className="text-2xl font-bold text-primary">{mockUser.applications}</p>
-                    <p className="text-sm text-muted-foreground">Candidaturas</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4 text-center">
-                    <p className="text-2xl font-bold text-primary">{mockUser.skills.length}</p>
-                    <p className="text-sm text-muted-foreground">Competências</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4 text-center">
-                    <p className="text-2xl font-bold text-primary">{mockUser.experience.length}</p>
-                    <p className="text-sm text-muted-foreground">Experiências</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4 text-center">
-                    <p className="text-2xl font-bold text-primary">{mockUser.education.length}</p>
-                    <p className="text-sm text-muted-foreground">Formações</p>
-                  </CardContent>
-                </Card>
-              </div>
+              {user.candidate && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <Card>
+                    <CardContent className="p-4 text-center">
+                      <p className="text-2xl font-bold text-primary">{user.applicationsCount || 0}</p>
+                      <p className="text-sm text-muted-foreground">Candidaturas</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4 text-center">
+                      <p className="text-2xl font-bold text-primary">{user.candidate.skills?.length || 0}</p>
+                      <p className="text-sm text-muted-foreground">Competências</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4 text-center">
+                      <p className="text-2xl font-bold text-primary">{user.candidate.experiences?.length || 0}</p>
+                      <p className="text-sm text-muted-foreground">Experiências</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4 text-center">
+                      <p className="text-2xl font-bold text-primary">{user.candidate.educations?.length || 0}</p>
+                      <p className="text-sm text-muted-foreground">Formações</p>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
 
               {/* About */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <FileText className="h-5 w-5" />
-                    Sobre
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground">{mockUser.bio}</p>
-                </CardContent>
-              </Card>
+              {user.bio && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="h-5 w-5" />
+                      Sobre
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-muted-foreground">{user.bio}</p>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Skills */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Competências</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-wrap gap-2">
-                    {mockUser.skills.map((skill, index) => (
-                      <Badge key={index} variant="secondary">{skill}</Badge>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+              {user.candidate?.skills && user.candidate.skills.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Competências</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-wrap gap-2">
+                      {user.candidate.skills.map((skill: string, index: number) => (
+                        <Badge key={index} variant="secondary">{skill}</Badge>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Experience */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Briefcase className="h-5 w-5" />
-                    Experiência Profissional
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {mockUser.experience.map((exp, index) => (
-                    <div key={index} className="border-l-2 border-primary pl-4">
-                      <h4 className="font-semibold">{exp.position}</h4>
-                      <p className="text-sm text-muted-foreground">{exp.company}</p>
-                      <p className="text-sm text-muted-foreground">{exp.period}</p>
-                      <p className="text-sm mt-1">{exp.description}</p>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
+              {user.candidate?.experiences && user.candidate.experiences.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Briefcase className="h-5 w-5" />
+                      Experiência Profissional
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {user.candidate.experiences.map((exp: any, index: number) => (
+                      <div key={index} className="border-l-2 border-primary pl-4">
+                        <h4 className="font-semibold">{exp.position}</h4>
+                        <p className="text-sm text-muted-foreground">{exp.company}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {formatDate(exp.startDate)} - {exp.current ? "Presente" : formatDate(exp.endDate)}
+                        </p>
+                        {exp.description && <p className="text-sm mt-1">{exp.description}</p>}
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Education */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <GraduationCap className="h-5 w-5" />
-                    Formação
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {mockUser.education.map((edu, index) => (
-                    <div key={index} className="border-l-2 border-primary pl-4">
-                      <h4 className="font-semibold">{edu.degree}</h4>
-                      <p className="text-sm text-muted-foreground">{edu.institution}</p>
-                      <p className="text-sm text-muted-foreground">{edu.year}</p>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
+              {user.candidate?.educations && user.candidate.educations.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <GraduationCap className="h-5 w-5" />
+                      Formação
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {user.candidate.educations.map((edu: any, index: number) => (
+                      <div key={index} className="border-l-2 border-primary pl-4">
+                        <h4 className="font-semibold">{edu.degree}</h4>
+                        <p className="text-sm text-muted-foreground">{edu.institution}</p>
+                        <p className="text-sm text-muted-foreground">{edu.field}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {formatDate(edu.startDate)} - {edu.current ? "Presente" : formatDate(edu.endDate)}
+                        </p>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Activity Log */}
               <Card>
@@ -339,17 +409,23 @@ export default function AdminPerfilUtilizador() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between text-sm">
-                      <span>Último login</span>
-                      <span className="text-muted-foreground">{mockUser.lastLogin}</span>
-                    </div>
+                    {user.lastLoginAt && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span>Último login</span>
+                        <span className="text-muted-foreground">{formatDateTime(user.lastLoginAt)}</span>
+                      </div>
+                    )}
                     <div className="flex items-center justify-between text-sm">
                       <span>Data de registo</span>
-                      <span className="text-muted-foreground">{mockUser.registeredAt}</span>
+                      <span className="text-muted-foreground">{formatDate(user.createdAt)}</span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span>Total de candidaturas</span>
-                      <span className="text-muted-foreground">{mockUser.applications}</span>
+                      <span className="text-muted-foreground">{user.applicationsCount || 0}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span>Estado</span>
+                      <span className="text-muted-foreground">{getStatusBadge(user.status)}</span>
                     </div>
                   </div>
                 </CardContent>

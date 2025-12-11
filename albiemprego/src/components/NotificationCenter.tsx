@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -17,97 +17,55 @@ import {
   CheckCircle, 
   Megaphone,
   Gift,
-  Settings
+  Settings,
+  Loader2
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { notificationApi, type UserNotification } from "@/lib/api";
+import { useMaintenance } from "@/contexts/MaintenanceContext";
 
 export type NotificationType = 
-  | "info" 
-  | "success" 
-  | "warning" 
-  | "announcement" 
-  | "promotion" 
-  | "system";
+  | "INFO" 
+  | "SUCCESS" 
+  | "WARNING" 
+  | "ANNOUNCEMENT" 
+  | "PROMOTION" 
+  | "SYSTEM"
+  | "MAINTENANCE";
 
-export interface Notification {
-  id: string;
-  type: NotificationType;
-  title: string;
-  message: string;
+export interface Notification extends Omit<UserNotification, 'createdAt' | 'userId'> {
   timestamp: Date;
-  read: boolean;
 }
 
 const notificationIcons: Record<NotificationType, typeof Info> = {
-  info: Info,
-  success: CheckCircle,
-  warning: AlertTriangle,
-  announcement: Megaphone,
-  promotion: Gift,
-  system: Settings,
+  INFO: Info,
+  SUCCESS: CheckCircle,
+  WARNING: AlertTriangle,
+  ANNOUNCEMENT: Megaphone,
+  PROMOTION: Gift,
+  SYSTEM: Settings,
+  MAINTENANCE: AlertTriangle,
 };
 
 const notificationColors: Record<NotificationType, string> = {
-  info: "bg-blue-100 text-blue-600",
-  success: "bg-green-100 text-green-600",
-  warning: "bg-yellow-100 text-yellow-600",
-  announcement: "bg-purple-100 text-purple-600",
-  promotion: "bg-pink-100 text-pink-600",
-  system: "bg-gray-100 text-gray-600",
+  INFO: "bg-blue-100 text-blue-600",
+  SUCCESS: "bg-green-100 text-green-600",
+  WARNING: "bg-yellow-100 text-yellow-600",
+  ANNOUNCEMENT: "bg-purple-100 text-purple-600",
+  PROMOTION: "bg-pink-100 text-pink-600",
+  SYSTEM: "bg-gray-100 text-gray-600",
+  MAINTENANCE: "bg-orange-100 text-orange-600",
 };
 
 const notificationLabels: Record<NotificationType, string> = {
-  info: "Informação",
-  success: "Sucesso",
-  warning: "Aviso",
-  announcement: "Anúncio",
-  promotion: "Promoção",
-  system: "Sistema",
+  INFO: "Informação",
+  SUCCESS: "Sucesso",
+  WARNING: "Aviso",
+  ANNOUNCEMENT: "Anúncio",
+  PROMOTION: "Promoção",
+  SYSTEM: "Sistema",
+  MAINTENANCE: "Manutenção",
 };
-
-// Mock notifications for demo
-const mockNotifications: Notification[] = [
-  {
-    id: "1",
-    type: "announcement",
-    title: "Nova Funcionalidade Disponível",
-    message: "Agora pode filtrar vagas por regime de trabalho remoto.",
-    timestamp: new Date(Date.now() - 1000 * 60 * 30),
-    read: false,
-  },
-  {
-    id: "2",
-    type: "success",
-    title: "Perfil Verificado",
-    message: "O seu perfil foi verificado com sucesso.",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2),
-    read: false,
-  },
-  {
-    id: "3",
-    type: "info",
-    title: "Manutenção Programada",
-    message: "O sistema estará em manutenção no domingo das 02h às 04h.",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24),
-    read: true,
-  },
-  {
-    id: "4",
-    type: "promotion",
-    title: "Plano Premium com Desconto",
-    message: "Aproveite 30% de desconto no plano Premium durante este mês.",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 48),
-    read: true,
-  },
-  {
-    id: "5",
-    type: "warning",
-    title: "Complete o seu Perfil",
-    message: "Perfis incompletos têm menos visibilidade nas pesquisas.",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 72),
-    read: false,
-  },
-];
 
 function formatTimeAgo(date: Date): string {
   const now = new Date();
@@ -126,39 +84,109 @@ function formatTimeAgo(date: Date): string {
 }
 
 export function NotificationCenter() {
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const { setMaintenanceBanner } = useMaintenance();
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  const fetchNotifications = async () => {
+    try {
+      setIsLoading(true);
+      const data = await notificationApi.getNotifications();
+      const mapped = data.map((n) => ({
+        ...n,
+        timestamp: new Date(n.createdAt),
+      }));
+      setNotifications(mapped);
+
+      // Se houver notificação de manutenção não lida, exibir banner
+      const maintenanceNotif = mapped.find(
+        (n) => n.type === "MAINTENANCE" && !n.read
+      );
+      if (maintenanceNotif) {
+        setMaintenanceBanner({
+          id: maintenanceNotif.id,
+          title: maintenanceNotif.title,
+          message: maintenanceNotif.message,
+          sentAt: maintenanceNotif.timestamp,
+        });
+      }
+    } catch (error) {
+      console.error("Erro ao carregar notificações:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  const markAsRead = (id: string) => {
-    setNotifications(prev =>
-      prev.map(n => (n.id === id ? { ...n, read: true } : n))
-    );
+  const markAsRead = async (id: string) => {
+    try {
+      await notificationApi.markAsRead(id);
+      setNotifications(prev =>
+        prev.map(n => (n.id === id ? { ...n, read: true } : n))
+      );
+    } catch (error) {
+      console.error("Erro ao marcar como lida:", error);
+    }
   };
 
-  const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-    toast({
-      title: "Notificações atualizadas",
-      description: "Todas as notificações foram marcadas como lidas.",
-    });
+  const markAllAsRead = async () => {
+    try {
+      await notificationApi.markAllAsRead();
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      toast({
+        title: "Notificações atualizadas",
+        description: "Todas as notificações foram marcadas como lidas.",
+      });
+    } catch (error) {
+      console.error("Erro ao marcar todas como lidas:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível marcar as notificações como lidas.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const deleteNotification = (id: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
-    toast({
-      title: "Notificação eliminada",
-      description: "A notificação foi removida.",
-    });
+  const deleteNotification = async (id: string) => {
+    try {
+      await notificationApi.deleteNotification(id);
+      setNotifications(prev => prev.filter(n => n.id !== id));
+      toast({
+        title: "Notificação eliminada",
+        description: "A notificação foi removida.",
+      });
+    } catch (error) {
+      console.error("Erro ao eliminar notificação:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível eliminar a notificação.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const deleteAllRead = () => {
-    setNotifications(prev => prev.filter(n => !n.read));
-    toast({
-      title: "Notificações eliminadas",
-      description: "Todas as notificações lidas foram removidas.",
-    });
+  const deleteAllRead = async () => {
+    try {
+      const result = await notificationApi.deleteAllRead();
+      setNotifications(prev => prev.filter(n => !n.read));
+      toast({
+        title: "Notificações eliminadas",
+        description: `${result.count} notificações lidas foram removidas.`,
+      });
+    } catch (error) {
+      console.error("Erro ao eliminar lidas:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível eliminar as notificações.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -195,7 +223,12 @@ export function NotificationCenter() {
         </div>
         
         <ScrollArea className="h-[400px]">
-          {notifications.length === 0 ? (
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+              <Loader2 className="h-12 w-12 mb-4 opacity-50 animate-spin" />
+              <p className="text-sm">A carregar...</p>
+            </div>
+          ) : notifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
               <Bell className="h-12 w-12 mb-4 opacity-50" />
               <p className="text-sm">Sem notificações</p>
