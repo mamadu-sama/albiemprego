@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
+import { adminContentApi } from "@/lib/admin-api";
 import { 
   FileText, 
   Save, 
@@ -197,38 +198,94 @@ export default function EditarConteudo() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [lastUpdated, setLastUpdated] = useState("");
 
   useEffect(() => {
-    if (pageId && contentPages[pageId]) {
-      const page = contentPages[pageId];
-      setTitle(page.title);
-      setContent(page.content);
-      setLastUpdated(page.lastUpdated);
+    if (pageId) {
+      fetchContent();
     }
   }, [pageId]);
 
-  const handleSave = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      setLastUpdated(new Date().toISOString().split('T')[0]);
+  const fetchContent = async () => {
+    try {
+      setIsLoading(true);
+      const pageData = await adminContentApi.getContent(pageId!);
+      
+      setTitle(pageData.title);
+      setContent(pageData.content);
+      setLastUpdated(new Date(pageData.updatedAt).toLocaleDateString('pt-PT'));
+      setNotFound(false);
+    } catch (error: any) {
+      console.error("Erro ao buscar conteúdo:", error);
+      
+      // Se for 404, tentar usar dados mockados
+      if (error.response?.status === 404 && contentPages[pageId!]) {
+        const page = contentPages[pageId!];
+        setTitle(page.title);
+        setContent(page.content);
+        setLastUpdated(page.lastUpdated);
+        setNotFound(false);
+      } else {
+        setNotFound(true);
+        toast({
+          title: "Erro",
+          description: "Não foi possível carregar o conteúdo.",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    try {
+      setLoading(true);
+      
+      await adminContentApi.updateContent(pageId!, {
+        title,
+        content,
+      });
+
+      setLastUpdated(new Date().toLocaleDateString('pt-PT'));
+      
       toast({
         title: "Conteúdo atualizado",
         description: `A página "${title}" foi atualizada com sucesso.`,
       });
-    }, 1000);
-  };
-
-  const handlePreview = () => {
-    if (pageId && contentPages[pageId]) {
-      window.open(contentPages[pageId].slug, '_blank');
+    } catch (error) {
+      console.error("Erro ao guardar conteúdo:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível guardar o conteúdo.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
-  if (!pageId || !contentPages[pageId]) {
+  const handlePreview = () => {
+    window.open(`/${pageId}`, '_blank');
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <Header />
+        <main className="flex-1 flex items-center justify-center">
+          <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (notFound || !pageId) {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Header />

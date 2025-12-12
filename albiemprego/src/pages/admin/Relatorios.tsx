@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   BarChart3, 
   TrendingUp, 
@@ -18,83 +18,125 @@ import {
   Calendar,
   MapPin,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  Loader2
 } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, Legend } from "recharts";
+import { adminAnalyticsApi } from "@/lib/admin-api";
+import { useToast } from "@/hooks/use-toast";
 
-const monthlyData = [
-  { month: "Jul", utilizadores: 180, empresas: 12, vagas: 45, candidaturas: 320 },
-  { month: "Ago", utilizadores: 210, empresas: 15, vagas: 52, candidaturas: 380 },
-  { month: "Set", utilizadores: 290, empresas: 22, vagas: 68, candidaturas: 520 },
-  { month: "Out", utilizadores: 350, empresas: 28, vagas: 75, candidaturas: 680 },
-  { month: "Nov", utilizadores: 420, empresas: 35, vagas: 88, candidaturas: 850 },
-  { month: "Dez", utilizadores: 480, empresas: 42, vagas: 95, candidaturas: 1020 },
-  { month: "Jan", utilizadores: 520, empresas: 48, vagas: 102, candidaturas: 1150 },
-];
-
-const categoryData = [
-  { name: "Tecnologia", value: 35, color: "#3B82F6" },
-  { name: "Comércio", value: 25, color: "#10B981" },
-  { name: "Saúde", value: 15, color: "#F59E0B" },
-  { name: "Educação", value: 12, color: "#8B5CF6" },
-  { name: "Indústria", value: 8, color: "#EF4444" },
-  { name: "Outros", value: 5, color: "#6B7280" },
-];
-
-const locationData = [
-  { location: "Castelo Branco", vagas: 145, candidaturas: 2340 },
-  { location: "Covilhã", vagas: 68, candidaturas: 890 },
-  { location: "Fundão", vagas: 42, candidaturas: 520 },
-  { location: "Idanha-a-Nova", vagas: 18, candidaturas: 180 },
-  { location: "Penamacor", vagas: 12, candidaturas: 95 },
-  { location: "Vila Velha de Ródão", vagas: 8, candidaturas: 65 },
-];
-
-const topCompanies = [
-  { name: "TechSolutions SA", vagas: 28, candidaturas: 456 },
-  { name: "Castelo Digital", vagas: 22, candidaturas: 380 },
-  { name: "InnovaTech Lda", vagas: 18, candidaturas: 312 },
-  { name: "WebAgency", vagas: 15, candidaturas: 245 },
-  { name: "ContaPlus", vagas: 12, candidaturas: 189 },
-];
-
-const kpis = [
-  { 
-    label: "Total Utilizadores", 
-    value: "2,456", 
-    change: 12, 
-    icon: Users,
-    color: "text-blue-500",
-    bgColor: "bg-blue-50"
-  },
-  { 
-    label: "Empresas Registadas", 
-    value: "189", 
-    change: 8, 
-    icon: Building2,
-    color: "text-green-500",
-    bgColor: "bg-green-50"
-  },
-  { 
-    label: "Vagas Ativas", 
-    value: "342", 
-    change: 23, 
-    icon: Briefcase,
-    color: "text-purple-500",
-    bgColor: "bg-purple-50"
-  },
-  { 
-    label: "Candidaturas", 
-    value: "5,891", 
-    change: -5, 
-    icon: FileText,
-    color: "text-orange-500",
-    bgColor: "bg-orange-50"
-  },
-];
+// Cores para os gráficos
+const CATEGORY_COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#8B5CF6", "#EF4444", "#6B7280", "#EC4899", "#14B8A6"];
 
 export default function AdminRelatorios() {
   const [period, setPeriod] = useState("6months");
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<any>(null);
+  const { toast } = useToast();
+
+  // Buscar dados do backend
+  useEffect(() => {
+    fetchReportsData();
+  }, [period]);
+
+  const fetchReportsData = async () => {
+    try {
+      setLoading(true);
+      console.log("🔍 Buscando dados de relatórios para período:", period);
+      const response = await adminAnalyticsApi.getReportsData(period);
+      console.log("✅ Dados recebidos:", response);
+      setData(response);
+    } catch (error: any) {
+      console.error("❌ Erro ao buscar relatórios:", error);
+      console.error("Detalhes do erro:", error.response?.data);
+      toast({
+        title: "Erro ao carregar relatórios",
+        description: error.response?.data?.message || "Tente novamente mais tarde",
+        variant: "destructive",
+      });
+      // Mesmo com erro, remover loading para não ficar travado
+      setData(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // KPIs com ícones
+  const kpis = data?.kpis
+    ? [
+        {
+          label: "Total Utilizadores",
+          value: data.kpis.totalUsers.value.toLocaleString("pt-PT"),
+          change: data.kpis.totalUsers.change,
+          icon: Users,
+          color: "text-blue-500",
+          bgColor: "bg-blue-50",
+        },
+        {
+          label: "Empresas Registadas",
+          value: data.kpis.totalCompanies.value.toLocaleString("pt-PT"),
+          change: data.kpis.totalCompanies.change,
+          icon: Building2,
+          color: "text-green-500",
+          bgColor: "bg-green-50",
+        },
+        {
+          label: "Vagas Ativas",
+          value: data.kpis.activeJobs.value.toLocaleString("pt-PT"),
+          change: data.kpis.activeJobs.change,
+          icon: Briefcase,
+          color: "text-purple-500",
+          bgColor: "bg-purple-50",
+        },
+        {
+          label: "Candidaturas",
+          value: data.kpis.totalApplications.value.toLocaleString("pt-PT"),
+          change: data.kpis.totalApplications.change,
+          icon: FileText,
+          color: "text-orange-500",
+          bgColor: "bg-orange-50",
+        },
+      ]
+    : [];
+
+  // Adicionar cores aos dados de categoria
+  const categoryData =
+    data?.categoryData.map((cat: any, idx: number) => ({
+      ...cat,
+      color: CATEGORY_COLORS[idx % CATEGORY_COLORS.length],
+    })) || [];
+
+  // Estado de loading
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <Header />
+        <main className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
+            <p className="text-muted-foreground">A carregar relatórios...</p>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  // Se não há dados após loading
+  if (!data) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <Header />
+        <main className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-muted-foreground mb-4">Não foi possível carregar os relatórios.</p>
+            <Button onClick={fetchReportsData}>Tentar novamente</Button>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -169,8 +211,9 @@ export default function AdminRelatorios() {
               </CardHeader>
               <CardContent>
                 <div className="h-80">
+                  {data?.monthlyGrowth && data.monthlyGrowth.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={monthlyData}>
+                    <AreaChart data={data.monthlyGrowth}>
                       <defs>
                         <linearGradient id="colorUsers" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3}/>
@@ -195,6 +238,11 @@ export default function AdminRelatorios() {
                       <Area type="monotone" dataKey="empresas" stroke="#10B981" fillOpacity={1} fill="url(#colorCompanies)" name="Empresas" />
                     </AreaChart>
                   </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-muted-foreground">
+                      Sem dados disponíveis para este período
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -207,6 +255,7 @@ export default function AdminRelatorios() {
               </CardHeader>
               <CardContent>
                 <div className="h-80">
+                  {categoryData && categoryData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
@@ -227,6 +276,11 @@ export default function AdminRelatorios() {
                       <Tooltip />
                     </PieChart>
                   </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-muted-foreground">
+                      Sem categorias disponíveis
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -246,7 +300,7 @@ export default function AdminRelatorios() {
               <CardContent>
                 <div className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={locationData} layout="vertical">
+                    <BarChart data={data?.locationData || []} layout="vertical">
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis type="number" className="text-xs" />
                       <YAxis dataKey="location" type="category" className="text-xs" width={120} />
@@ -275,7 +329,7 @@ export default function AdminRelatorios() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {topCompanies.map((company, index) => (
+                  {(data?.topCompanies || []).map((company: any, index: number) => (
                     <div key={company.name} className="flex items-center gap-4">
                       <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-bold text-sm">
                         {index + 1}
@@ -308,7 +362,7 @@ export default function AdminRelatorios() {
             <CardContent>
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={monthlyData}>
+                  <BarChart data={data?.monthlyGrowth || []}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                     <XAxis dataKey="month" className="text-xs" />
                     <YAxis className="text-xs" />

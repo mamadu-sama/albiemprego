@@ -221,6 +221,61 @@ export const maintenanceApi = {
 };
 
 // ==========================================
+// CONFIGURAÇÕES DA PLATAFORMA
+// ==========================================
+
+export const adminSettingsApi = {
+  // Obter configurações
+  getSettings: async () => {
+    const response = await api.get("/admin/settings");
+    return response.data;
+  },
+
+  // Atualizar configurações
+  updateSettings: async (data: {
+    siteName?: string;
+    siteDescription?: string;
+    contactEmail?: string;
+    supportEmail?: string;
+    requireCompanyApproval?: boolean;
+    requireJobApproval?: boolean;
+    allowGuestApplications?: boolean;
+    enableNotifications?: boolean;
+    enableEmailAlerts?: boolean;
+    maxJobsPerCompany?: number;
+    maxApplicationsPerCandidate?: number;
+    jobExpirationDays?: number;
+  }) => {
+    const response = await api.put("/admin/settings", data);
+    return response.data;
+  },
+};
+
+// ==========================================
+// GESTÃO DE CONTEÚDO
+// ==========================================
+
+export const adminContentApi = {
+  // Listar todas as páginas
+  getAllContent: async () => {
+    const response = await api.get("/admin/content");
+    return response.data;
+  },
+
+  // Obter página específica
+  getContent: async (slug: string) => {
+    const response = await api.get(`/admin/content/${slug}`);
+    return response.data;
+  },
+
+  // Atualizar página
+  updateContent: async (slug: string, data: { title: string; content: string }) => {
+    const response = await api.put(`/admin/content/${slug}`, data);
+    return response.data;
+  },
+};
+
+// ==========================================
 // GESTÃO DE NOTIFICAÇÕES
 // ==========================================
 
@@ -287,6 +342,32 @@ export const adminNotificationApi = {
   // Estatísticas
   getStats: async () => {
     const response = await api.get("/admin/notifications/stats");
+    return response.data;
+  },
+};
+
+// ==========================================
+// ANALYTICS API
+// ==========================================
+export const adminAnalyticsApi = {
+  getUsersAnalytics: async (days: number = 30) => {
+    const response = await api.get(`/admin/analytics/users?days=${days}`);
+    return response.data;
+  },
+  getJobsAnalytics: async (days: number = 30) => {
+    const response = await api.get(`/admin/analytics/jobs?days=${days}`);
+    return response.data;
+  },
+  getApplicationsAnalytics: async (days: number = 30) => {
+    const response = await api.get(`/admin/analytics/applications?days=${days}`);
+    return response.data;
+  },
+  getDashboardAnalytics: async () => {
+    const response = await api.get("/admin/analytics/dashboard");
+    return response.data;
+  },
+  getReportsData: async (period: string = "6months") => {
+    const response = await api.get(`/admin/analytics/reports?period=${period}`);
     return response.data;
   },
 };

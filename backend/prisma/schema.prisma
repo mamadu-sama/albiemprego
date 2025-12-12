@@ -455,6 +455,63 @@ model MaintenanceMode {
   @@map("maintenance_mode")
 }
 
+model PlatformSettings {
+  id String @id @default(uuid())
+  
+  // Informações Gerais
+  siteName        String @default("AlbiEmprego")
+  siteDescription String @default("Plataforma de emprego para a região de Castelo Branco")
+  contactEmail    String @default("info@albiemprego.pt")
+  supportEmail    String @default("suporte@albiemprego.pt")
+  
+  // Funcionalidades
+  requireCompanyApproval Boolean @default(true)
+  requireJobApproval     Boolean @default(true)
+  allowGuestApplications Boolean @default(false)
+  
+  // Notificações
+  enableNotifications Boolean @default(true)
+  enableEmailAlerts   Boolean @default(true)
+  
+  // Limites
+  maxJobsPerCompany           Int @default(10)
+  maxApplicationsPerCandidate Int @default(50)
+  jobExpirationDays          Int @default(30)
+  
+  updatedAt DateTime @updatedAt
+  
+  @@map("platform_settings")
+}
+
+model ContentPage {
+  id        String   @id @default(uuid())
+  slug      String   @unique // "termos", "privacidade", "cookies", "sobre", "faq"
+  title     String
+  content   String   @db.Text // Markdown content
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  
+  @@map("content_pages")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String
+  userEmail  String
+  action     String // "USER_SUSPENDED", "JOB_APPROVED", etc
+  entityType String // "User", "Job", "Company", "Settings", etc
+  entityId   String?
+  details    Json? // Dados adicionais sobre a ação
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+  
+  @@index([userId])
+  @@index([entityType])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
 // ============================================
 // SUBSCRIPTION & CREDITS MODELS
 // ============================================

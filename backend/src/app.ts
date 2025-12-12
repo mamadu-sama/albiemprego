@@ -32,6 +32,12 @@ import adminMaintenanceRoutes from "./routes/admin-maintenance.routes";
 import adminNotificationRoutes from "./routes/admin-notification.routes";
 import notificationRoutes from "./routes/notification.routes";
 import maintenanceRoutes from "./routes/maintenance.routes";
+import adminSettingsRoutes from "./routes/admin-settings.routes";
+import settingsRoutes from "./routes/settings.routes";
+import adminContentRoutes from "./routes/admin-content.routes";
+import contentRoutes from "./routes/content.routes";
+import adminAuditRoutes from "./routes/admin-audit.routes";
+import adminAnalyticsRoutes from "./routes/admin-analytics.routes";
 import companySubscriptionRoutes from "./routes/company-subscription.routes";
 import companyPlanRequestRoutes from "./routes/company-plan-request.routes";
 import adminPlanRequestRoutes from "./routes/admin-plan-request.routes";
@@ -114,12 +120,18 @@ app.use("/api/v1/jobs", jobRoutes);
 app.use("/api/v1/saved-jobs", savedJobRoutes);
 app.use("/api/v1/notifications", notificationRoutes); // Notificações de utilizadores
 app.use("/api/v1/maintenance", maintenanceRoutes); // Rota pública
+app.use("/api/v1/settings", settingsRoutes); // Configurações públicas
+app.use("/api/v1/content", contentRoutes); // Conteúdo público
 app.use("/api/v1/admin", adminSubscriptionRoutes);
 app.use("/api/v1/admin", adminUserRoutes);
 app.use("/api/v1/admin", adminCompanyRoutes);
 app.use("/api/v1/admin", adminJobRoutes);
 app.use("/api/v1/admin", adminMaintenanceRoutes);
 app.use("/api/v1/admin", adminNotificationRoutes);
+app.use("/api/v1/admin", adminSettingsRoutes);
+app.use("/api/v1/admin", adminContentRoutes);
+app.use("/api/v1/admin", adminAuditRoutes);
+app.use("/api/v1/admin", adminAnalyticsRoutes);
 app.use("/api/v1/admin/requests", adminPlanRequestRoutes);
 app.use("/api/v1/subscriptions", companySubscriptionRoutes);
 app.use("/api/v1/company/requests", companyPlanRequestRoutes);

@@ -122,11 +122,11 @@ export default function AdminEmpresas() {
   const handleApprove = async (company: any) => {
     try {
       await adminCompanyApi.updateStatus(company.id, "ACTIVE");
-      toast({
-        title: "Empresa aprovada",
-        description: `${company.name} foi aprovada com sucesso.`,
-      });
-      setDialogOpen(false);
+    toast({
+      title: "Empresa aprovada",
+      description: `${company.name} foi aprovada com sucesso.`,
+    });
+    setDialogOpen(false);
       fetchCompanies();
       fetchStats();
     } catch (error: any) {
@@ -141,11 +141,11 @@ export default function AdminEmpresas() {
   const handleSuspend = async (company: any) => {
     try {
       await adminCompanyApi.updateStatus(company.id, "SUSPENDED");
-      toast({
-        title: "Empresa suspensa",
-        description: `${company.name} foi suspensa com sucesso.`,
-      });
-      setDialogOpen(false);
+    toast({
+      title: "Empresa suspensa",
+      description: `${company.name} foi suspensa com sucesso.`,
+    });
+    setDialogOpen(false);
       fetchCompanies();
       fetchStats();
     } catch (error: any) {
@@ -160,11 +160,11 @@ export default function AdminEmpresas() {
   const handleActivate = async (company: any) => {
     try {
       await adminCompanyApi.updateStatus(company.id, "ACTIVE");
-      toast({
-        title: "Empresa ativada",
-        description: `${company.name} foi ativada com sucesso.`,
-      });
-      setDialogOpen(false);
+    toast({
+      title: "Empresa ativada",
+      description: `${company.name} foi ativada com sucesso.`,
+    });
+    setDialogOpen(false);
       fetchCompanies();
       fetchStats();
     } catch (error: any) {
@@ -179,12 +179,12 @@ export default function AdminEmpresas() {
   const handleDelete = async (company: any) => {
     try {
       await adminCompanyApi.delete(company.id);
-      toast({
-        title: "Empresa eliminada",
-        description: `${company.name} foi eliminada permanentemente.`,
-        variant: "destructive",
-      });
-      setDialogOpen(false);
+    toast({
+      title: "Empresa eliminada",
+      description: `${company.name} foi eliminada permanentemente.`,
+      variant: "destructive",
+    });
+    setDialogOpen(false);
       fetchCompanies();
       fetchStats();
     } catch (error: any) {

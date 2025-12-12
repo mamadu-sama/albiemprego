@@ -8,8 +8,9 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { adminSettingsApi } from "@/lib/admin-api";
 import { 
   Settings, 
   Globe, 
@@ -26,6 +27,7 @@ import {
 export default function AdminConfiguracoes() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   // General Settings
   const [siteName, setSiteName] = useState("AlbiEmprego");
@@ -39,23 +41,94 @@ export default function AdminConfiguracoes() {
   const [enableNotifications, setEnableNotifications] = useState(true);
   const [enableEmailAlerts, setEnableEmailAlerts] = useState(true);
   const [allowGuestApplications, setAllowGuestApplications] = useState(false);
-  const [maintenanceMode, setMaintenanceMode] = useState(false);
 
   // Limits
   const [maxJobsPerCompany, setMaxJobsPerCompany] = useState("10");
   const [maxApplicationsPerCandidate, setMaxApplicationsPerCandidate] = useState("50");
   const [jobExpirationDays, setJobExpirationDays] = useState("30");
 
-  const handleSave = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+  // Buscar configurações ao carregar
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const fetchSettings = async () => {
+    try {
+      setIsLoading(true);
+      const settings = await adminSettingsApi.getSettings();
+      
+      // Atualizar estados
+      setSiteName(settings.siteName);
+      setSiteDescription(settings.siteDescription);
+      setContactEmail(settings.contactEmail);
+      setSupportEmail(settings.supportEmail);
+      setRequireCompanyApproval(settings.requireCompanyApproval);
+      setRequireJobApproval(settings.requireJobApproval);
+      setEnableNotifications(settings.enableNotifications);
+      setEnableEmailAlerts(settings.enableEmailAlerts);
+      setAllowGuestApplications(settings.allowGuestApplications);
+      setMaxJobsPerCompany(settings.maxJobsPerCompany.toString());
+      setMaxApplicationsPerCandidate(settings.maxApplicationsPerCandidate.toString());
+      setJobExpirationDays(settings.jobExpirationDays.toString());
+    } catch (error) {
+      console.error("Erro ao buscar configurações:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar as configurações.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    try {
+      setLoading(true);
+      
+      await adminSettingsApi.updateSettings({
+        siteName,
+        siteDescription,
+        contactEmail,
+        supportEmail,
+        requireCompanyApproval,
+        requireJobApproval,
+        enableNotifications,
+        enableEmailAlerts,
+        allowGuestApplications,
+        maxJobsPerCompany: parseInt(maxJobsPerCompany),
+        maxApplicationsPerCandidate: parseInt(maxApplicationsPerCandidate),
+        jobExpirationDays: parseInt(jobExpirationDays),
+      });
+
       toast({
         title: "Configurações guardadas",
         description: "As alterações foram aplicadas com sucesso.",
       });
-    }, 1000);
+    } catch (error) {
+      console.error("Erro ao guardar configurações:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível guardar as configurações.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
+
+  // Mostrar loading inicial
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <Header />
+        <main className="flex-1 flex items-center justify-center">
+          <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -156,24 +229,20 @@ export default function AdminConfiguracoes() {
                   </CardContent>
                 </Card>
 
-                <Card className="border-destructive/50">
+                <Card className="border-primary/30">
                   <CardHeader>
-                    <CardTitle className="text-destructive">Modo de Manutenção</CardTitle>
-                    <CardDescription>Desativar acesso público à plataforma temporariamente</CardDescription>
+                    <CardTitle className="text-primary">Nota sobre Modo de Manutenção</CardTitle>
+                    <CardDescription>O modo de manutenção é gerido na página de Notificações</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">Ativar Modo de Manutenção</p>
-                        <p className="text-sm text-muted-foreground">
-                          Apenas administradores poderão aceder à plataforma
-                        </p>
-                      </div>
-                      <Switch 
-                        checked={maintenanceMode} 
-                        onCheckedChange={setMaintenanceMode}
-                      />
-                    </div>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Para ativar ou desativar o modo de manutenção, aceda à página de Gestão de Notificações.
+                    </p>
+                    <Button variant="outline" asChild>
+                      <Link to="/admin/notificacoes">
+                        Ir para Notificações
+                      </Link>
+                    </Button>
                   </CardContent>
                 </Card>
               </div>
